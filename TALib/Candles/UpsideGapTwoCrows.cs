@@ -1,9 +1,21 @@
 using System.Numerics;
+using TALib.Helpers;
 
 namespace TALib
 {
     public static partial class Candles
     {
+        public static Core.RetCode UpsideGapTwoCrows(
+            ReadOnlySpan<float> inOpen,
+            ReadOnlySpan<float> inHigh,
+            ReadOnlySpan<float> inLow,
+            ReadOnlySpan<float> inClose,
+            Range inRange,
+            Span<int> outIntType,
+            out Range outRange)
+        {
+            return Candles.UpsideGapTwoCrows<float>(inOpen, inHigh, inLow, inClose, inRange, outIntType, out outRange);
+        }
         public static Core.RetCode UpsideGapTwoCrows<T>(
             ReadOnlySpan<T> inOpen,
             ReadOnlySpan<T> inHigh,
@@ -18,10 +30,6 @@ namespace TALib
         public static int UpsideGapTwoCrowsLookback() =>
             Math.Max(CandleHelpers.CandleAveragePeriod(Core.CandleSettingType.BodyShort),
                 CandleHelpers.CandleAveragePeriod(Core.CandleSettingType.BodyLong)) + 2;
-
-        
-        
-        
 
         private static Core.RetCode UpsideGapTwoCrows<T>(
             T[] inOpen,

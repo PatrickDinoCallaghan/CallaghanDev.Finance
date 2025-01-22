@@ -1,10 +1,22 @@
 using System.Numerics;
+using TALib.Helpers;
 
 namespace TALib
 {
     public static partial class Candles
     {
 
+        public static Core.RetCode Piercing(
+          ReadOnlySpan<float> inOpen,
+          ReadOnlySpan<float> inHigh,
+          ReadOnlySpan<float> inLow,
+          ReadOnlySpan<float> inClose,
+          Range inRange,
+          Span<int> outIntType,
+          out Range outRange)
+        {
+            return Candles.Piercing<float>(inOpen, inHigh, inLow, inClose, inRange, outIntType, out outRange);
+        }
         public static Core.RetCode Piercing<T>(
             ReadOnlySpan<T> inOpen,
             ReadOnlySpan<T> inHigh,

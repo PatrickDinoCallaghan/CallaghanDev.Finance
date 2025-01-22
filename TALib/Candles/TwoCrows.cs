@@ -1,9 +1,21 @@
 using System.Numerics;
+using TALib.Helpers;
 
 namespace TALib
 {
     public static partial class Candles
     {
+        public static Core.RetCode TwoCrows(
+            ReadOnlySpan<float> inOpen,
+            ReadOnlySpan<float> inHigh,
+            ReadOnlySpan<float> inLow,
+            ReadOnlySpan<float> inClose,
+            Range inRange,
+            Span<int> outIntType,
+            out Range outRange)
+        {
+            return Candles.TwoCrows<float>(inOpen, inHigh, inLow, inClose, inRange, outIntType, out outRange);
+        }
         public static Core.RetCode TwoCrows<T>(
             ReadOnlySpan<T> inOpen,
             ReadOnlySpan<T> inHigh,
@@ -16,10 +28,6 @@ namespace TALib
 
 
         public static int TwoCrowsLookback() => CandleHelpers.CandleAveragePeriod(Core.CandleSettingType.BodyLong) + 2;
-
-        
-        
-        
 
         private static Core.RetCode TwoCrows<T>(
             T[] inOpen,

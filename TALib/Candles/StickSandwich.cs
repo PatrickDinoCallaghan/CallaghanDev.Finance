@@ -1,4 +1,5 @@
 using System.Numerics;
+using TALib.Helpers;
 
 namespace TALib
 {
@@ -6,6 +7,17 @@ namespace TALib
     public static partial class Candles
     {
 
+        public static Core.RetCode StickSandwich(
+            ReadOnlySpan<float> inOpen,
+            ReadOnlySpan<float> inHigh,
+            ReadOnlySpan<float> inLow,
+            ReadOnlySpan<float> inClose,
+            Range inRange,
+            Span<int> outIntType,
+            out Range outRange)
+        {
+            return Candles.StickSandwich<float>(inOpen, inHigh, inLow, inClose, inRange, outIntType, out outRange);
+        }
         public static Core.RetCode StickSandwich<T>(
             ReadOnlySpan<T> inOpen,
             ReadOnlySpan<T> inHigh,

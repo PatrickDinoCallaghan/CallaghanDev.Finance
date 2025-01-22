@@ -1,10 +1,21 @@
 using System.Numerics;
+using TALib.Helpers;
 
 namespace TALib
 {
     public static partial class Candles
     {
-
+        public static Core.RetCode InvertedHammer(
+          ReadOnlySpan<float> inOpen,
+          ReadOnlySpan<float> inHigh,
+          ReadOnlySpan<float> inLow,
+          ReadOnlySpan<float> inClose,
+          Range inRange,
+          Span<int> outIntType,
+          out Range outRange)
+        {
+            return Candles.InvertedHammer<float>(inOpen, inHigh, inLow, inClose, inRange, outIntType, out outRange);
+        }
         public static Core.RetCode InvertedHammer<T>(
             ReadOnlySpan<T> inOpen,
             ReadOnlySpan<T> inHigh,
@@ -22,10 +33,6 @@ namespace TALib
                     CandleHelpers.CandleAveragePeriod(Core.CandleSettingType.ShadowLong)),
                 CandleHelpers.CandleAveragePeriod(Core.CandleSettingType.ShadowVeryShort)
             ) + 1;
-
-        
-        
-        
 
         private static Core.RetCode InvertedHammer<T>(
             T[] inOpen,

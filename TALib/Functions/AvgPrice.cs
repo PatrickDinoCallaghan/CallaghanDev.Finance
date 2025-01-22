@@ -15,14 +15,8 @@ namespace TALib
             AvgPriceImpl(inOpen, inHigh, inLow, inClose, inRange, outReal, out outRange);
 
         
-        
-        
-
         public static int AvgPriceLookback() => 0;
 
-        
-        
-        
 
         private static Core.RetCode AvgPrice<T>(
             T[] inOpen,

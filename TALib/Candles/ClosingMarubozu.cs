@@ -1,11 +1,22 @@
 
 using System.Numerics;
+using TALib.Helpers;
 
 namespace TALib
 {
     public static partial class Candles
     {
-        
+        public static Core.RetCode ClosingMarubozu(
+            ReadOnlySpan<float> inOpen,
+            ReadOnlySpan<float> inHigh,
+            ReadOnlySpan<float> inLow,
+            ReadOnlySpan<float> inClose,
+            Range inRange,
+            Span<int> outIntType,
+            out Range outRange)
+        {
+            return Candles.ClosingMarubozu<float>(inOpen, inHigh, inLow, inClose, inRange, outIntType, out outRange);
+        }
         public static Core.RetCode ClosingMarubozu<T>(
             ReadOnlySpan<T> inOpen,
             ReadOnlySpan<T> inHigh,
@@ -20,11 +31,6 @@ namespace TALib
         public static int ClosingMarubozuLookback() =>
             Math.Max(CandleHelpers.CandleAveragePeriod(Core.CandleSettingType.BodyLong),
                 CandleHelpers.CandleAveragePeriod(Core.CandleSettingType.ShadowVeryShort));
-
-        
-        
-        
-        
         private static Core.RetCode ClosingMarubozu<T>(
             T[] inOpen,
             T[] inHigh,

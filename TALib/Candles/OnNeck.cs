@@ -1,9 +1,21 @@
 using System.Numerics;
+using TALib.Helpers;
 
 namespace TALib
 {
     public static partial class Candles
     {
+        public static Core.RetCode OnNeck(
+          ReadOnlySpan<float> inOpen,
+          ReadOnlySpan<float> inHigh,
+          ReadOnlySpan<float> inLow,
+          ReadOnlySpan<float> inClose,
+          Range inRange,
+          Span<int> outIntType,
+          out Range outRange)
+        {
+            return Candles.OnNeck<float>(inOpen, inHigh, inLow, inClose, inRange, outIntType, out outRange);
+        }
 
         public static Core.RetCode OnNeck<T>(
             ReadOnlySpan<T> inOpen,
@@ -19,10 +31,6 @@ namespace TALib
         public static int OnNeckLookback() =>
             Math.Max(CandleHelpers.CandleAveragePeriod(Core.CandleSettingType.Equal),
                 CandleHelpers.CandleAveragePeriod(Core.CandleSettingType.BodyLong)) + 1;
-
-        
-        
-        
 
         private static Core.RetCode OnNeck<T>(
             T[] inOpen,

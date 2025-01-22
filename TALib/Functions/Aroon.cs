@@ -4,7 +4,6 @@ namespace TALib
 {
     public static partial class Functions
     {
-
         public static Core.RetCode Aroon<T>(
             ReadOnlySpan<T> inHigh,
             ReadOnlySpan<T> inLow,
@@ -17,10 +16,6 @@ namespace TALib
 
 
         public static int AroonLookback(int optInTimePeriod = 14) => optInTimePeriod < 2 ? -1 : optInTimePeriod;
-
-        
-        
-        
 
         private static Core.RetCode Aroon<T>(
             T[] inHigh,

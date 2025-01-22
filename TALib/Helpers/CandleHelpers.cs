@@ -1,6 +1,6 @@
 using System.Numerics;
 
-namespace TALib
+namespace TALib.Helpers
 {
     internal static class CandleHelpers
     {
@@ -39,10 +39,10 @@ namespace TALib
             Core.CandleSettingType set,
             int idx) where T : IFloatingPointIeee754<T> => CandleRangeType(set) switch
             {
-                Core.CandleRangeType.RealBody => CandleHelpers.RealBody(close, open, idx),
+                Core.CandleRangeType.RealBody => RealBody(close, open, idx),
                 Core.CandleRangeType.HighLow => HighLowRange(high, low, idx),
-                Core.CandleRangeType.Shadows => CandleHelpers.UpperShadow(high, close, open, idx) +
-                                            CandleHelpers.LowerShadow(close, open, low, idx),
+                Core.CandleRangeType.Shadows => UpperShadow(high, close, open, idx) +
+                                            LowerShadow(close, open, low, idx),
                 _ => T.Zero
             };
 
@@ -55,11 +55,11 @@ namespace TALib
             T sum,
             int idx) where T : IFloatingPointIeee754<T>
         {
-            var candleAveragePeriod = T.CreateChecked(CandleHelpers.CandleAveragePeriod(set));
+            var candleAveragePeriod = T.CreateChecked(CandleAveragePeriod(set));
             var candleFactor = T.CreateChecked(CandleFactor(set));
             return candleFactor * (!T.IsZero(candleAveragePeriod)
                        ? sum / candleAveragePeriod
-                       : CandleHelpers.CandleRange(open, high, low, close, set, idx)) /
+                       : CandleRange(open, high, low, close, set, idx)) /
                    (CandleRangeType(set) == Core.CandleRangeType.Shadows ? T.CreateChecked(2) : T.One);
         }
 

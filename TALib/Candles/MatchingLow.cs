@@ -1,9 +1,21 @@
 using System.Numerics;
+using TALib.Helpers;
 
 namespace TALib
 {
     public static partial class Candles
     {
+        public static Core.RetCode MatchingLow(
+          ReadOnlySpan<float> inOpen,
+          ReadOnlySpan<float> inHigh,
+          ReadOnlySpan<float> inLow,
+          ReadOnlySpan<float> inClose,
+          Range inRange,
+          Span<int> outIntType,
+          out Range outRange)
+        {
+            return Candles.MatchingLow<float>(inOpen, inHigh, inLow, inClose, inRange, outIntType, out outRange);
+        }
         public static Core.RetCode MatchingLow<T>(
             ReadOnlySpan<T> inOpen,
             ReadOnlySpan<T> inHigh,
@@ -16,10 +28,6 @@ namespace TALib
 
 
         public static int MatchingLowLookback() => CandleHelpers.CandleAveragePeriod(Core.CandleSettingType.Equal) + 1;
-
-        
-        
-        
 
         private static Core.RetCode MatchingLow<T>(
             T[] inOpen,

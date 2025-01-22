@@ -1,10 +1,31 @@
 using System.Numerics;
+using TALib.Helpers;
 namespace TALib
 {
 
     public static partial class Candles
     {
-        
+        /// <summary>
+        /// Detects the Abandoned Baby candlestick pattern in the provided candlestick data.
+        /// </summary>
+        /// <typeparam name="T">The numeric type (must support IEEE 754 floating-point operations).</typeparam>
+        /// <param name="inOpen">ReadOnlySpan containing the Open prices of the candlesticks.</param>
+        /// <param name="inHigh">ReadOnlySpan containing the High prices of the candlesticks.</param>
+        /// <param name="inLow">ReadOnlySpan containing the Low prices of the candlesticks.</param>
+        /// <param name="inClose">ReadOnlySpan containing the Close prices of the candlesticks.</param>
+        /// <param name="inRange">The range of candlesticks to analyze.</param>
+        /// <param name="outIntType">Span to store the results for each candlestick in the range:
+        ///     - `+100` for bullish Abandoned Baby pattern,
+        ///     - `-100` for bearish Abandoned Baby pattern,
+        ///     - `0` if no pattern is detected.</param>
+        /// <param name="outRange">Outputs the range of data points that were analyzed.</param>
+        /// <param name="optInPenetration">Specifies the sensitivity for detecting the pattern:
+        ///     - A value between `0.0` and `1.0` (default is `0.3`).</param>
+        /// <returns>
+        /// A Core.RetCode indicating success or failure:
+        ///     - `Core.RetCode.Success` if the analysis is successful.
+        ///     - `Core.RetCode.BadParam` or `Core.RetCode.OutOfRangeParam` if inputs are invalid.
+        /// </returns>
         public static Core.RetCode AbandonedBaby<T>(
             ReadOnlySpan<T> inOpen,
             ReadOnlySpan<T> inHigh,
@@ -16,7 +37,16 @@ namespace TALib
             double optInPenetration = 0.3) where T : IFloatingPointIeee754<T> =>
             AbandonedBabyImpl(inOpen, inHigh, inLow, inClose, inRange, outIntType, out outRange, optInPenetration);
 
-        
+        /// <summary>
+        /// Returns the lookback period required for the Abandoned Baby candlestick pattern analysis.
+        /// </summary>
+        /// <remarks>
+        /// The lookback period is the minimum number of preceding candlesticks needed to calculate the pattern.
+        /// It considers the average periods for BodyDoji, BodyLong, and BodyShort candles and adds 2 additional candles.
+        /// </remarks>
+        /// <returns>
+        /// The number of candlesticks required as lookback for pattern detection.
+        /// </returns>
         public static int AbandonedBabyLookback() =>
             Math.Max(
                 Math.Max(CandleHelpers.CandleAveragePeriod(Core.CandleSettingType.BodyDoji),
@@ -24,10 +54,21 @@ namespace TALib
                 CandleHelpers.CandleAveragePeriod(Core.CandleSettingType.BodyShort)
             ) + 2;
 
-        
-        
-        
-        
+
+
+        public static Core.RetCode AbandonedBaby(
+            ReadOnlySpan<float> inOpen,
+            ReadOnlySpan<float> inHigh,
+            ReadOnlySpan<float> inLow,
+            ReadOnlySpan<float> inClose,
+            Range inRange,
+            Span<int> outIntType,
+            out Range outRange)
+        {
+            return Candles.AbandonedBaby<float>(inOpen, inHigh, inLow, inClose, inRange, outIntType, out outRange);
+        }
+
+
         private static Core.RetCode AbandonedBaby<T>(
             T[] inOpen,
             T[] inHigh,

@@ -1,10 +1,21 @@
 
 using System.Numerics;
+using TALib.Helpers;
 namespace TALib;
 
 public static partial class Candles
 {
-    
+    public static Core.RetCode Breakaway(
+        ReadOnlySpan<float> inOpen,
+        ReadOnlySpan<float> inHigh,
+        ReadOnlySpan<float> inLow,
+        ReadOnlySpan<float> inClose,
+        Range inRange,
+        Span<int> outIntType,
+        out Range outRange)
+    {
+        return Candles.Breakaway<float>(inOpen, inHigh, inLow, inClose, inRange, outIntType, out outRange);
+    }
     public static Core.RetCode Breakaway<T>(
         ReadOnlySpan<T> inOpen,
         ReadOnlySpan<T> inHigh,
@@ -18,10 +29,6 @@ public static partial class Candles
     
     public static int BreakawayLookback() => CandleHelpers.CandleAveragePeriod(Core.CandleSettingType.BodyLong) + 4;
 
-    
-    
-    
-    
     private static Core.RetCode Breakaway<T>(
         T[] inOpen,
         T[] inHigh,

@@ -1,9 +1,21 @@
 using System.Numerics;
+using TALib.Helpers;
 
 namespace TALib
 {
     public static partial class Candles
     {
+        public static Core.RetCode UniqueThreeRiver(
+            ReadOnlySpan<float> inOpen,
+            ReadOnlySpan<float> inHigh,
+            ReadOnlySpan<float> inLow,
+            ReadOnlySpan<float> inClose,
+            Range inRange,
+            Span<int> outIntType,
+            out Range outRange)
+        {
+            return Candles.UniqueThreeRiver<float>(inOpen, inHigh, inLow, inClose, inRange, outIntType, out outRange);
+        }
         public static Core.RetCode UniqueThreeRiver<T>(
             ReadOnlySpan<T> inOpen,
             ReadOnlySpan<T> inHigh,
@@ -14,14 +26,9 @@ namespace TALib
             out Range outRange) where T : IFloatingPointIeee754<T> =>
             UniqueThreeRiverImpl(inOpen, inHigh, inLow, inClose, inRange, outIntType, out outRange);
 
-
         public static int UniqueThreeRiverLookback() =>
             Math.Max(CandleHelpers.CandleAveragePeriod(Core.CandleSettingType.BodyShort),
                 CandleHelpers.CandleAveragePeriod(Core.CandleSettingType.BodyLong)) + 2;
-
-        
-        
-        
 
         private static Core.RetCode UniqueThreeRiver<T>(
             T[] inOpen,

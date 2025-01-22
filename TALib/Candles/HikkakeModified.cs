@@ -1,10 +1,22 @@
 using System.Numerics;
+using TALib.Helpers;
 
 namespace TALib
 {
     public static partial class Candles
     {
-        
+        public static Core.RetCode HikkakeModified(
+          ReadOnlySpan<float> inOpen,
+          ReadOnlySpan<float> inHigh,
+          ReadOnlySpan<float> inLow,
+          ReadOnlySpan<float> inClose,
+          Range inRange,
+          Span<int> outIntType,
+          out Range outRange)
+        {
+            return Candles.HikkakeModified<float>(inOpen, inHigh, inLow, inClose, inRange, outIntType, out outRange);
+        }
+
         public static Core.RetCode HikkakeModified<T>(
             ReadOnlySpan<T> inOpen,
             ReadOnlySpan<T> inHigh,

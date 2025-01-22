@@ -1,9 +1,21 @@
 using System.Numerics;
+using TALib.Helpers;
 
 namespace TALib
 {
     public static partial class Candles
     {
+        public static Core.RetCode MatHold(
+          ReadOnlySpan<float> inOpen,
+          ReadOnlySpan<float> inHigh,
+          ReadOnlySpan<float> inLow,
+          ReadOnlySpan<float> inClose,
+          Range inRange,
+          Span<int> outIntType,
+          out Range outRange)
+        {
+            return Candles.MatHold<float>(inOpen, inHigh, inLow, inClose, inRange, outIntType, out outRange);
+        }
         public static Core.RetCode MatHold<T>(
             ReadOnlySpan<T> inOpen,
             ReadOnlySpan<T> inHigh,
@@ -19,10 +31,6 @@ namespace TALib
         public static int MatHoldLookback() =>
             Math.Max(CandleHelpers.CandleAveragePeriod(Core.CandleSettingType.BodyShort),
                 CandleHelpers.CandleAveragePeriod(Core.CandleSettingType.ShadowLong)) + 4;
-
-        
-        
-        
 
         private static Core.RetCode MatHold<T>(
             T[] inOpen,
