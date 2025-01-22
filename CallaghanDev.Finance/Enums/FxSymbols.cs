@@ -17,6 +17,10 @@ namespace CallaghanDev.Finance.Enums
 
     public enum FxSymbols
     {
+        [Description("US Dollar/New Zealand Dollar")]
+        [EnumMember(Value = "USD/NZD")]
+        USDNZD,
+
         [Description("British Pound/US Dollar")]
         [EnumMember(Value = "GBP/USD")]
         GBPUSD,
@@ -562,55 +566,93 @@ namespace CallaghanDev.Finance.Enums
         [EnumMember(Value = "ZAR/HKD")]
         ZARHKD,
 
-        /*
+        [Description("Swiss Franc/Swedish Krona")]
+        [EnumMember(Value = "CHF/SEK")]
+        CHFSEK,
 
-        some notable missing pairs:
+        [Description("Swiss Franc/Danish Krone")]
+        [EnumMember(Value = "CHF/DKK")]
+        CHFDKK,
 
-Scandinavian Currency Pairs:
+        [Description("Swedish Krona/Danish Krone")]
+        [EnumMember(Value = "SEK/DKK")]
+        SEKDKK,
+
+        [Description("Euro/Brazilian Real")]
+        [EnumMember(Value = "EUR/BRL")]
+        EURBRL,
+
+        [Description("British Pound/Brazilian Real")]
+        [EnumMember(Value = "GBP/BRL")]
+        GBPBRL,
+
+        [Description("Euro/South Korean Won")]
+        [EnumMember(Value = "EUR/KRW")]
+        EURKRW,
+
+        [Description("British Pound/South Korean Won")]
+        [EnumMember(Value = "GBP/KRW")]
+        GBPKRW,
+
+        [Description("Singapore Dollar/Chinese Yuan Offshore")]
+        [EnumMember(Value = "SGD/CNH")]
+        SGDCNH,
+
+        [Description("Euro/Philippine Peso")]
+        [EnumMember(Value = "EUR/PHP")]
+        EURPHP,
+
+        [Description("Euro/Thai Baht")]
+        [EnumMember(Value = "EUR/THB")]
+        EURTHB,
+
+        [Description("Euro/Taiwan Dollar")]
+        [EnumMember(Value = "EUR/TWD")]
+        EURTWD,
+
+        [Description("Euro/Indonesian Rupiah")]
+        [EnumMember(Value = "EUR/IDR")]
+        EURIDR,
+
+        [Description("Brazilian Real/US Dollar")]
+        [EnumMember(Value = "BRL/USD")]
+        BRLUSD,
+
+        [Description("Singapore Dollar/US Dollar")]
+        [EnumMember(Value = "SGD/USD")]
+        SGDUSD,
+
+        [Description("Hong Kong Dollar/US Dollar")]
+        [EnumMember(Value = "HKD/USD")]
+        HKDUSD,
 
 
-CHF/SEK - Swiss Franc/Swedish Krona
-CHF/DKK - Swiss Franc/Danish Krone
-SEK/DKK - Swedish Krona/Danish Krone
+        [Description("Chinese Yuan Offshore/US Dollar")]
+        [EnumMember(Value = "CNH/USD")]
+        CNHUSD,
 
+        [Description("South Korean Won/US Dollar")]
+        [EnumMember(Value = "KRW/USD")]
+        KRWUSD,
 
-Major Currency/Regional Currency Pairs:
+        [Description("Canadian Dollar/Polish Zloty")]
+        [EnumMember(Value = "CAD/PLN")]
+        CADPLN,
 
+        [Description("Canadian Dollar/Czech Koruna")]
+        [EnumMember(Value = "CAD/CZK")]
+        CADCZK,
 
-EUR/BRL - Euro/Brazilian Real
-GBP/BRL - British Pound/Brazilian Real
-EUR/KRW - Euro/South Korean Won
-GBP/KRW - British Pound/South Korean Won
+        [Description("Canadian Dollar/Hungarian Forint")]
+        [EnumMember(Value = "CAD/HUF")]
+        CADHUF,
 
+        [Description("Swiss Franc/Polish Zloty")]
+        [EnumMember(Value = "CHF/PLN")]
+        CHFPLN,
 
-Asian Currency Pairs:
-
-
-SGD/CNH - Singapore Dollar/Chinese Yuan Offshore
-EUR/PHP - Euro/Philippine Peso
-EUR/THB - Euro/Thai Baht
-EUR/TWD - Euro/Taiwan Dollar
-EUR/IDR - Euro/Indonesian Rupiah
-
-
-Missing Reciprocal Pairs:
-
-
-BRL/USD - Brazilian Real/US Dollar
-SGD/USD - Singapore Dollar/US Dollar
-HKD/USD - Hong Kong Dollar/US Dollar
-CNH/USD - Chinese Yuan Offshore/US Dollar
-KRW/USD - South Korean Won/US Dollar
-
-
-Additional Cross Rates:
-
-
-CAD/PLN - Canadian Dollar/Polish Zloty
-CAD/CZK - Canadian Dollar/Czech Koruna
-CAD/HUF - Canadian Dollar/Hungarian Forint
-CHF/PLN - Swiss Franc/Polish Zloty
-CHF/CZK - Swiss Franc/Czech Koruna
-        */
+        [Description("Swiss Franc/Czech Koruna")]
+        [EnumMember(Value = "CHF/CZK")]
+        CHFCZK,
     }
 }

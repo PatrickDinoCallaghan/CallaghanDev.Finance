@@ -1,6 +1,7 @@
 ﻿
 using CallaghanDev.Common.Math;
 using CallaghanDev.Utilities;
+
 namespace CallaghanDev.Finance.Options
 {
     public class BlackScholes

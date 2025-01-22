@@ -12,9 +12,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\CallaghanDev.Common\CallaghanDev.Common.Math\CallaghanDev.Common.Math.csproj" />
     <ProjectReference Include="..\..\CallaghanDev.Common\CallaghanDev.Utilities\CallaghanDev.Utilities.csproj" />
     <ProjectReference Include="..\TALib\TALib.csproj" />
-    <ProjectReference Include="D:\OneDrive\Documents\Shared\repos\CallaghanDev\CallaghanDev.Common\CallaghanDev.Common.Math\CallaghanDev.Common.Math.csproj" />
   </ItemGroup>
 
 </Project>
