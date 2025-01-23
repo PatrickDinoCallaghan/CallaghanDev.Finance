@@ -33,7 +33,7 @@ namespace TALib
             var middleBand = new float[fxData.Count];
             var lowerBand = new float[fxData.Count];
 
-            var range = new Range(0, highPrices.Length);
+            var range = new Range(0, highPrices.Length-1);
 
             // Call Accbands
             var retCode = Functions.Accbands<float>(
@@ -107,7 +107,7 @@ namespace TALib
 
             // Prepare output arrays
             var acosValues = new float[fxData.Count];
-            var range = new Range(0, closePrices.Length);
+            var range = new Range(0, closePrices.Length-1);
 
             // Call Acos function
             var retCode = Functions.Acos<float>(
@@ -168,7 +168,7 @@ namespace TALib
 
             // Prepare output array
             var addedValues = new float[fxData.Count];
-            var range = new Range(0, bidPrices.Length);
+            var range = new Range(0, bidPrices.Length-1);
 
             // Call Add function
             var retCode = Functions.Add<float>(
@@ -231,7 +231,7 @@ namespace TALib
 
             // Prepare output array
             var adxValues = new float[fxData.Count];
-            var range = new Range(0, highPrices.Length);
+            var range = new Range(0, highPrices.Length - 1);
 
             // Call Adx function
             var retCode = Functions.Adx<float>(
@@ -295,7 +295,7 @@ namespace TALib
 
             // Prepare output array
             var adxrValues = new float[fxData.Count];
-            var range = new Range(0, highPrices.Length);
+            var range = new Range(0, highPrices.Length - 1);
 
             // Call Adxr function
             var retCode = Functions.Adxr<float>(
@@ -351,7 +351,7 @@ namespace TALib
 
             // Prepare output array
             var apoValues = new float[fxData.Count];
-            var range = new Range(0, closePrices.Length);
+            var range = new Range(0, closePrices.Length-1);
 
             // Call Apo function
             var retCode = Functions.Apo<float>(
@@ -423,7 +423,7 @@ namespace TALib
             // Prepare output arrays
             var aroonUpValues = new float[fxData.Count];
             var aroonDownValues = new float[fxData.Count];
-            var range = new Range(0, highPrices.Length);
+            var range = new Range(0, highPrices.Length - 1);
 
             // Call Aroon function
             var retCode = Functions.Aroon<float>(
@@ -482,7 +482,7 @@ namespace TALib
 
             // Prepare output array
             var aroonOscValues = new float[fxData.Count];
-            var range = new Range(0, highPrices.Length);
+            var range = new Range(0, highPrices.Length-1);
 
             // Call AroonOsc function
             var retCode = Functions.AroonOsc<float>(
@@ -528,7 +528,7 @@ namespace TALib
 
             // Prepare output array
             var asinValues = new float[fxData.Count];
-            var range = new Range(0, closePrices.Length);
+            var range = new Range(0, closePrices.Length - 1);
 
             // Call Asin function
             var retCode = Functions.Asin<float>(
@@ -581,7 +581,7 @@ namespace TALib
 
             // Prepare output array
             var atanValues = new float[fxData.Count];
-            var range = new Range(0, closePrices.Length);
+            var range = new Range(0, closePrices.Length - 1);
 
             // Call Atan function
             var retCode = Functions.Atan<float>(
@@ -642,7 +642,7 @@ namespace TALib
 
             // Prepare output array
             var atrValues = new float[fxData.Count];
-            var range = new Range(0, highPrices.Length);
+            var range = new Range(0, highPrices.Length-1);
 
             // Call Atr function
             var retCode = Functions.Atr<float>(
@@ -694,7 +694,7 @@ namespace TALib
 
             // Prepare output array
             var avgDevValues = new float[fxData.Count];
-            var range = new Range(0, closePrices.Length);
+            var range = new Range(0, closePrices.Length - 1);
 
             // Call AvgDev function
             var retCode = Functions.AvgDev<float>(
@@ -753,7 +753,7 @@ namespace TALib
 
             // Prepare output array
             var avgPriceValues = new float[fxData.Count];
-            var range = new Range(0, openPrices.Length);
+            var range = new Range(0, openPrices.Length - 1);
 
             // Call AvgPrice function
             var retCode = Functions.AvgPrice<float>(
@@ -820,7 +820,7 @@ namespace TALib
             var upperBandValues = new float[fxData.Count];
             var middleBandValues = new float[fxData.Count];
             var lowerBandValues = new float[fxData.Count];
-            var range = new Range(0, closePrices.Length);
+            var range = new Range(0, closePrices.Length - 1);
 
             // Call Bbands function
             var retCode = Functions.Bbands<float>(
@@ -886,7 +886,7 @@ namespace TALib
 
             // Prepare output array
             var betaValues = new float[fxData1.Count];
-            var range = new Range(0, closePrices1.Length);
+            var range = new Range(0, closePrices1.Length - 1);
 
             // Call Beta function
             var retCode = Functions.Beta<float>(
@@ -944,7 +944,7 @@ namespace TALib
 
             // Prepare output array
             var bopValues = new float[fxData.Count];
-            var range = new Range(0, openPrices.Length);
+            var range = new Range(0, openPrices.Length - 1);
 
             // Call Bop function
             var retCode = Functions.Bop<float>(
@@ -993,7 +993,7 @@ namespace TALib
 
             // Prepare output array
             var cciValues = new float[fxData.Count];
-            var range = new Range(0, highPrices.Length);
+            var range = new Range(0, highPrices.Length - 1);
 
             // Call CCI function
             var retCode = Functions.Cci<float>(
@@ -1040,7 +1040,7 @@ namespace TALib
 
             // Prepare output array
             var ceilValues = new float[fxData.Count];
-            var range = new Range(0, prices.Length);
+            var range = new Range(0, prices.Length - 1);
 
             // Call Ceil function
             var retCode = Functions.Ceil<float>(
@@ -1084,7 +1084,7 @@ namespace TALib
 
             // Prepare output array
             var cmoValues = new float[fxData.Count];
-            var range = new Range(0, prices.Length);
+            var range = new Range(0, prices.Length - 1);
 
             // Call CMO function
             var retCode = Functions.Cmo<float>(
@@ -1130,7 +1130,7 @@ namespace TALib
 
             // Prepare output array
             var correlValues = new float[fxData1.Count];
-            var range = new Range(0, prices1.Length);
+            var range = new Range(0, prices1.Length - 1);
 
             // Call Correl function
             var retCode = Functions.Correl<float>(
@@ -1176,7 +1176,7 @@ namespace TALib
 
             // Prepare output array
             var cosValues = new float[fxData.Count];
-            var range = new Range(0, prices.Length);
+            var range = new Range(0, prices.Length - 1);
 
             // Call Cos function
             var retCode = Functions.Cos<float>(
@@ -1220,7 +1220,7 @@ namespace TALib
 
             // Prepare output array
             var coshValues = new float[fxData.Count];
-            var range = new Range(0, prices.Length);
+            var range = new Range(0, prices.Length - 1);
 
             // Call Cosh function
             var retCode = Functions.Cosh<float>(
@@ -1264,7 +1264,7 @@ namespace TALib
 
             // Prepare output array
             var demaValues = new float[fxData.Count];
-            var range = new Range(0, prices.Length);
+            var range = new Range(0, prices.Length - 1);
 
             // Call Dema function
             var retCode = Functions.Dema<float>(
@@ -1310,7 +1310,7 @@ namespace TALib
 
             // Prepare output array
             var divValues = new float[fxData.Count];
-            var range = new Range(0, prices1.Length);
+            var range = new Range(0, prices1.Length - 1);
 
             // Call Div function
             var retCode = Functions.Div<float>(
@@ -1357,7 +1357,7 @@ namespace TALib
 
             // Prepare output array
             var dxValues = new float[fxData.Count];
-            var range = new Range(0, highPrices.Length);
+            var range = new Range(0, highPrices.Length - 1);
 
             // Call Dx function
             var retCode = Functions.Dx<float>(
@@ -1404,7 +1404,7 @@ namespace TALib
 
             // Prepare output array
             var emaValues = new float[fxData.Count];
-            var range = new Range(0, prices.Length);
+            var range = new Range(0, prices.Length - 1);
 
             // Call Ema function
             var retCode = Functions.Ema<float>(
@@ -1449,7 +1449,7 @@ namespace TALib
 
             // Prepare output array
             var expValues = new float[fxData.Count];
-            var range = new Range(0, prices.Length);
+            var range = new Range(0, prices.Length - 1);
 
             // Call Exp function
             var retCode = Functions.Exp<float>(
@@ -1493,7 +1493,7 @@ namespace TALib
 
             // Prepare output array
             var floorValues = new float[fxData.Count];
-            var range = new Range(0, prices.Length);
+            var range = new Range(0, prices.Length - 1);
 
             // Call Floor function
             var retCode = Functions.Floor<float>(
@@ -1537,7 +1537,7 @@ namespace TALib
 
             // Prepare output array
             var htDcPeriodValues = new float[fxData.Count];
-            var range = new Range(0, prices.Length);
+            var range = new Range(0, prices.Length - 1);
 
             // Call HtDcPeriod function
             var retCode = Functions.HtDcPeriod<float>(
@@ -1581,7 +1581,7 @@ namespace TALib
 
             // Prepare output array
             var htDcPhaseValues = new float[fxData.Count];
-            var range = new Range(0, prices.Length);
+            var range = new Range(0, prices.Length - 1);
 
             // Call HtDcPhase function
             var retCode = Functions.HtDcPhase<float>(
@@ -1635,7 +1635,7 @@ namespace TALib
             // Prepare output arrays
             var inPhaseValues = new float[fxData.Count];
             var quadratureValues = new float[fxData.Count];
-            var range = new Range(0, prices.Length);
+            var range = new Range(0, prices.Length - 1);
 
             // Call HtPhasor function
             var retCode = Functions.HtPhasor<float>(
@@ -1691,7 +1691,7 @@ namespace TALib
             // Prepare output arrays
             var sineValues = new float[fxData.Count];
             var leadSineValues = new float[fxData.Count];
-            var range = new Range(0, prices.Length);
+            var range = new Range(0, prices.Length - 1);
 
             // Call HtSine function
             var retCode = Functions.HtSine<float>(
@@ -1738,7 +1738,7 @@ namespace TALib
 
             // Prepare output array
             var trendlineValues = new float[fxData.Count];
-            var range = new Range(0, prices.Length);
+            var range = new Range(0, prices.Length - 1);
 
             // Call HtTrendline function
             var retCode = Functions.HtTrendline<float>(
@@ -1779,7 +1779,7 @@ namespace TALib
 
             // Prepare output array
             var trendModeValues = new int[fxData.Count];
-            var range = new Range(0, prices.Length);
+            var range = new Range(0, prices.Length - 1);
 
             // Call HtTrendMode function
             var retCode = Functions.HtTrendMode<float>(
@@ -1811,7 +1811,7 @@ namespace TALib
 
             // Prepare output array
             var kamaValues = new float[fxData.Count];
-            var range = new Range(0, prices.Length);
+            var range = new Range(0, prices.Length - 1);
 
             // Call Kama function
             var retCode = Functions.Kama<float>(
@@ -1853,7 +1853,7 @@ namespace TALib
 
             // Prepare output array
             var linearRegValues = new float[fxData.Count];
-            var range = new Range(0, prices.Length);
+            var range = new Range(0, prices.Length - 1);
 
             // Call LinearReg function
             var retCode = Functions.LinearReg<float>(
@@ -1895,7 +1895,7 @@ namespace TALib
 
             // Prepare output array
             var linearRegAngleValues = new float[fxData.Count];
-            var range = new Range(0, prices.Length);
+            var range = new Range(0, prices.Length - 1);
 
             // Call LinearRegAngle function
             var retCode = Functions.LinearRegAngle<float>(
@@ -1937,7 +1937,7 @@ namespace TALib
 
             // Prepare output array
             var linearRegInterceptValues = new float[fxData.Count];
-            var range = new Range(0, prices.Length);
+            var range = new Range(0, prices.Length-1);
 
             // Call LinearRegIntercept function
             var retCode = Functions.LinearRegIntercept<float>(
@@ -1979,7 +1979,7 @@ namespace TALib
 
             // Prepare output array
             var linearRegSlopeValues = new float[fxData.Count];
-            var range = new Range(0, prices.Length);
+            var range = new Range(0, prices.Length-1);
 
             // Call LinearRegSlope function
             var retCode = Functions.LinearRegSlope<float>(
@@ -2021,7 +2021,7 @@ namespace TALib
 
             // Prepare output array
             var lnValues = new float[fxData.Count];
-            var range = new Range(0, prices.Length);
+            var range = new Range(0, prices.Length-1);
 
             // Call Ln function
             var retCode = Functions.Ln<float>(
@@ -2062,7 +2062,7 @@ namespace TALib
 
             // Prepare output array
             var log10Values = new float[fxData.Count];
-            var range = new Range(0, prices.Length);
+            var range = new Range(0, prices.Length-1);
 
             // Call Log10 function
             var retCode = Functions.Log10<float>(
@@ -2103,7 +2103,7 @@ namespace TALib
 
             // Prepare output array
             var maValues = new float[fxData.Count];
-            var range = new Range(0, prices.Length);
+            var range = new Range(0, prices.Length-1);
 
             // Call MA function
             var retCode = Functions.Ma<float>(
@@ -2161,7 +2161,7 @@ namespace TALib
             var macdValues = new float[fxData.Count];
             var signalValues = new float[fxData.Count];
             var histogramValues = new float[fxData.Count];
-            var range = new Range(0, prices.Length);
+            var range = new Range(0, prices.Length-1);
 
             // Call MACD function
             var retCode = Functions.Macd<float>(
@@ -2230,7 +2230,7 @@ namespace TALib
             var macdValues = new float[fxData.Count];
             var macdSignalValues = new float[fxData.Count];
             var macdHistValues = new float[fxData.Count];
-            var range = new Range(0, prices.Length);
+            var range = new Range(0, prices.Length-1);
 
             // Call MACD function
             var retCode = Functions.MacdExt<float>(
@@ -2296,7 +2296,7 @@ namespace TALib
             var macdValues = new float[fxData.Count];
             var macdSignalValues = new float[fxData.Count];
             var macdHistValues = new float[fxData.Count];
-            var range = new Range(0, prices.Length);
+            var range = new Range(0, prices.Length-1);
 
             // Call MACD Fix function
             var retCode = Functions.MacdFix<float>(
@@ -2356,7 +2356,7 @@ namespace TALib
             // Prepare output arrays
             var mamaValues = new float[fxData.Count];
             var famaValues = new float[fxData.Count];
-            var range = new Range(0, prices.Length);
+            var range = new Range(0, prices.Length-1);
 
             // Call MAMA function
             var retCode = Functions.Mama<float>(
@@ -2406,7 +2406,7 @@ namespace TALib
 
             // Prepare output array
             var maxValues = new float[fxData.Count];
-            var range = new Range(0, prices.Length);
+            var range = new Range(0, prices.Length-1);
 
             // Call Max function
             var retCode = Functions.Max<float>(
@@ -2448,7 +2448,7 @@ namespace TALib
 
             // Prepare output array
             var maxIndices = new int[fxData.Count];
-            var range = new Range(0, prices.Length);
+            var range = new Range(0, prices.Length-1);
 
             // Call MaxIndex function
             var retCode = Functions.MaxIndex<float>(
@@ -2490,7 +2490,7 @@ namespace TALib
 
             // Prepare output array
             var medPrices = new float[fxData.Count];
-            var range = new Range(0, highs.Length);
+            var range = new Range(0, highs.Length - 1);
 
             // Call MedPrice function
             var retCode = Functions.MedPrice<float>(
@@ -2533,7 +2533,7 @@ namespace TALib
 
             // Prepare output array
             var midPoints = new float[fxData.Count];
-            var range = new Range(0, prices.Length);
+            var range = new Range(0, prices.Length-1);
 
             // Call MidPoint function
             var retCode = Functions.MidPoint<float>(
@@ -2576,7 +2576,7 @@ namespace TALib
 
             // Prepare output array
             var midPrices = new float[fxData.Count];
-            var range = new Range(0, highs.Length);
+            var range = new Range(0, highs.Length - 1);
 
             // Call MidPrice function
             var retCode = Functions.MidPrice<float>(
@@ -2619,7 +2619,7 @@ namespace TALib
 
             // Prepare output array
             var minValues = new float[fxData.Count];
-            var range = new Range(0, prices.Length);
+            var range = new Range(0, prices.Length-1);
 
             // Call Min function
             var retCode = Functions.Min<float>(
@@ -2661,7 +2661,7 @@ namespace TALib
 
             // Prepare output array
             var minIndices = new int[fxData.Count];
-            var range = new Range(0, prices.Length);
+            var range = new Range(0, prices.Length-1);
 
             // Call MinIndex function
             var retCode = Functions.MinIndex<float>(
@@ -2703,7 +2703,7 @@ namespace TALib
             // Prepare output arrays for min and max indices
             var minIndices = new float[fxData.Count];
             var maxIndices = new float[fxData.Count];
-            var range = new Range(0, prices.Length);
+            var range = new Range(0, prices.Length-1);
 
             // Call MinMaxIndex function
             var retCode = Functions.MinMaxIndex<float>(
@@ -2748,7 +2748,7 @@ namespace TALib
 
             // Prepare output array
             var minusDIValues = new float[fxData.Count];
-            var range = new Range(0, highs.Length);
+            var range = new Range(0, highs.Length-1);
 
             // Call MinusDI function
             var retCode = Functions.MinusDI<float>(
@@ -2793,7 +2793,7 @@ namespace TALib
 
             // Prepare output array
             var minusDMValues = new float[fxData.Count];
-            var range = new Range(0, highs.Length);
+            var range = new Range(0, highs.Length -1);
 
             // Call MinusDM function
             var retCode = Functions.MinusDM<float>(
@@ -2836,7 +2836,7 @@ namespace TALib
 
             // Prepare output array
             var momValues = new float[fxData.Count];
-            var range = new Range(0, prices.Length);
+            var range = new Range(0, prices.Length-1);
 
             // Call Mom function
             var retCode = Functions.Mom<float>(
@@ -2879,7 +2879,7 @@ namespace TALib
 
             // Prepare output array
             var multValues = new float[fxData1.Count];
-            var range = new Range(0, values1.Length);
+            var range = new Range(0, values1.Length - 1);
 
             // Call Mult function
             var retCode = Functions.Mult<float>(
@@ -2923,7 +2923,7 @@ namespace TALib
 
             // Prepare output array
             var natrValues = new float[fxData.Count];
-            var range = new Range(0, highs.Length);
+            var range = new Range(0, highs.Length - 1);
 
             // Call NATR function
             var retCode = Functions.Natr<float>(
@@ -2970,7 +2970,7 @@ namespace TALib
 
             // Prepare output array
             var plusDIValues = new float[fxData.Count];
-            var range = new Range(0, highs.Length);
+            var range = new Range(0, highs.Length - 1);
 
             // Call PlusDI function
             var retCode = Functions.PlusDI<float>(
@@ -3015,7 +3015,7 @@ namespace TALib
 
             // Prepare output array
             var plusDMValues = new float[fxData.Count];
-            var range = new Range(0, highs.Length);
+            var range = new Range(0, highs.Length - 1);
 
             // Call PlusDM function
             var retCode = Functions.PlusDM<float>(
@@ -3058,7 +3058,7 @@ namespace TALib
 
             // Prepare output array
             var ppoValues = new float[fxData.Count];
-            var range = new Range(0, prices.Length);
+            var range = new Range(0, prices.Length-1);
 
             // Call PPO function
             var retCode = Functions.Ppo<float>(
@@ -3102,7 +3102,7 @@ namespace TALib
 
             // Prepare output array
             var rocValues = new float[fxData.Count];
-            var range = new Range(0, prices.Length);
+            var range = new Range(0, prices.Length-1);
 
             // Call ROC function
             var retCode = Functions.Roc<float>(
@@ -3144,7 +3144,7 @@ namespace TALib
 
             // Prepare output array
             var rocpValues = new float[fxData.Count];
-            var range = new Range(0, prices.Length);
+            var range = new Range(0, prices.Length-1);
 
             // Call ROCP function
             var retCode = Functions.RocP<float>(
@@ -3186,7 +3186,7 @@ namespace TALib
 
             // Prepare output array
             var rocrValues = new float[fxData.Count];
-            var range = new Range(0, prices.Length);
+            var range = new Range(0, prices.Length-1);
 
             // Call ROCR function
             var retCode = Functions.RocR<float>(
@@ -3228,7 +3228,7 @@ namespace TALib
 
             // Prepare output array
             var rocr100Values = new float[fxData.Count];
-            var range = new Range(0, prices.Length);
+            var range = new Range(0, prices.Length-1);
 
             // Call ROCR100 function
             var retCode = Functions.RocR100<float>(
@@ -3270,7 +3270,7 @@ namespace TALib
 
             // Prepare output array
             var rsiValues = new float[fxData.Count];
-            var range = new Range(0, prices.Length);
+            var range = new Range(0, prices.Length-1);
 
             // Call RSI function
             var retCode = Functions.Rsi<float>(
@@ -3313,7 +3313,7 @@ namespace TALib
 
             // Prepare output array
             var sarValues = new float[fxData.Count];
-            var range = new Range(0, highs.Length);
+            var range = new Range(0, highs.Length - 1);
 
             // Call SAR function
             var retCode = Functions.Sar<float>(
@@ -3358,7 +3358,7 @@ namespace TALib
 
             // Prepare output array
             var sarValues = new float[fxData.Count];
-            var range = new Range(0, highs.Length);
+            var range = new Range(0, highs.Length - 1);
 
             // Call SAR Ext function
             var retCode = Functions.SarExt<float>(
@@ -3408,7 +3408,7 @@ namespace TALib
 
             // Prepare output array
             var sinValues = new float[fxData.Count];
-            var range = new Range(0, inputValues.Length);
+            var range = new Range(0, inputValues.Length - 1);
 
             // Call Sin function
             var retCode = Functions.Sin<float>(
@@ -3449,7 +3449,7 @@ namespace TALib
 
             // Prepare output array
             var sinhValues = new float[fxData.Count];
-            var range = new Range(0, inputValues.Length);
+            var range = new Range(0, inputValues.Length - 1);
 
             // Call Sinh function
             var retCode = Functions.Sinh<float>(
@@ -3490,7 +3490,7 @@ namespace TALib
 
             // Prepare output array
             var smaValues = new float[fxData.Count];
-            var range = new Range(0, inputValues.Length);
+            var range = new Range(0, inputValues.Length - 1);
 
             // Call SMA function
             var retCode = Functions.Sma<float>(
@@ -3532,7 +3532,7 @@ namespace TALib
 
             // Prepare output array
             var sqrtValues = new float[fxData.Count];
-            var range = new Range(0, inputValues.Length);
+            var range = new Range(0, inputValues.Length - 1);
 
             // Call Sqrt function
             var retCode = Functions.Sqrt<float>(
@@ -3573,7 +3573,7 @@ namespace TALib
 
             // Prepare output array
             var stdDevValues = new float[fxData.Count];
-            var range = new Range(0, inputValues.Length);
+            var range = new Range(0, inputValues.Length - 1);
 
             // Call StdDev function
             var retCode = Functions.StdDev<float>(
@@ -3619,7 +3619,7 @@ namespace TALib
             // Prepare output arrays
             var slowKValues = new float[fxData.Count];
             var slowDValues = new float[fxData.Count];
-            var range = new Range(0, highs.Length);
+            var range = new Range(0, highs.Length - 1);
 
             // Call Stoch function
             var retCode = Functions.Stoch<float>(
@@ -3671,7 +3671,7 @@ namespace TALib
             // Prepare output arrays
             var fastKValues = new float[fxData.Count];
             var fastDValues = new float[fxData.Count];
-            var range = new Range(0, highs.Length);
+            var range = new Range(0, highs.Length - 1);
 
             // Call StochF function
             var retCode = Functions.StochF<float>(
@@ -3719,7 +3719,7 @@ namespace TALib
             // Prepare output arrays
             var fastKValues = new float[fxData.Count];
             var fastDValues = new float[fxData.Count];
-            var range = new Range(0, closes.Length);
+            var range = new Range(0, closes.Length - 1);
 
             // Call StochRsi function
             var retCode = Functions.StochRsi<float>(
@@ -3766,7 +3766,7 @@ namespace TALib
 
             // Prepare output array
             var subValues = new float[fxData0.Count];
-            var range = new Range(0, inputValues0.Length);
+            var range = new Range(0, inputValues0.Length - 1);
 
             // Call Sub function
             var retCode = Functions.Sub<float>(
@@ -3808,7 +3808,7 @@ namespace TALib
 
             // Prepare output array
             var sumValues = new float[fxData.Count];
-            var range = new Range(0, inputValues.Length);
+            var range = new Range(0, inputValues.Length - 1);
 
             // Call Sum function
             var retCode = Functions.Sum<float>(
@@ -3850,7 +3850,7 @@ namespace TALib
 
             // Prepare output array
             var t3Values = new float[fxData.Count];
-            var range = new Range(0, inputValues.Length);
+            var range = new Range(0, inputValues.Length - 1);
 
             // Call T3 function
             var retCode = Functions.T3<float>(
@@ -3893,7 +3893,7 @@ namespace TALib
 
             // Prepare output array
             var tanValues = new float[fxData.Count];
-            var range = new Range(0, inputValues.Length);
+            var range = new Range(0, inputValues.Length - 1);
 
             // Call Tan function
             var retCode = Functions.Tan<float>(
@@ -3934,7 +3934,7 @@ namespace TALib
 
             // Prepare output array
             var tanhValues = new float[fxData.Count];
-            var range = new Range(0, inputValues.Length);
+            var range = new Range(0, inputValues.Length - 1);
 
             // Call Tanh function
             var retCode = Functions.Tanh<float>(
@@ -3975,7 +3975,7 @@ namespace TALib
 
             // Prepare output array
             var temaValues = new float[fxData.Count];
-            var range = new Range(0, inputValues.Length);
+            var range = new Range(0, inputValues.Length - 1);
 
             // Call Tema function
             var retCode = Functions.Tema<float>(
@@ -4019,7 +4019,7 @@ namespace TALib
 
             // Prepare output array
             var tRangeValues = new float[fxData.Count];
-            var range = new Range(0, highs.Length);
+            var range = new Range(0, highs.Length - 1);
 
             // Call TRange function
             var retCode = Functions.TRange<float>(
@@ -4062,7 +4062,7 @@ namespace TALib
 
             // Prepare output array
             var trimaValues = new float[fxData.Count];
-            var range = new Range(0, inputValues.Length);
+            var range = new Range(0, inputValues.Length - 1);
 
             // Call Trima function
             var retCode = Functions.Trima<float>(
@@ -4104,7 +4104,7 @@ namespace TALib
 
             // Prepare output array
             var trixValues = new float[fxData.Count];
-            var range = new Range(0, inputValues.Length);
+            var range = new Range(0, inputValues.Length - 1);
 
             // Call Trix function
             var retCode = Functions.Trix<float>(
@@ -4146,7 +4146,7 @@ namespace TALib
 
             // Prepare output array
             var tsfValues = new float[fxData.Count];
-            var range = new Range(0, inputValues.Length);
+            var range = new Range(0, inputValues.Length - 1);
 
             // Call Tsf function
             var retCode = Functions.Tsf<float>(
@@ -4190,7 +4190,7 @@ namespace TALib
 
             // Prepare output array
             var typPriceValues = new float[fxData.Count];
-            var range = new Range(0, highs.Length);
+            var range = new Range(0, highs.Length - 1);
 
             // Call TypPrice function
             var retCode = Functions.TypPrice<float>(
@@ -4235,7 +4235,7 @@ namespace TALib
 
             // Prepare output array
             var ultOscValues = new float[fxData.Count];
-            var range = new Range(0, highs.Length);
+            var range = new Range(0, highs.Length - 1);
 
             // Call UltOsc function
             var retCode = Functions.UltOsc<float>(
@@ -4281,7 +4281,7 @@ namespace TALib
 
             // Prepare output array
             var varValues = new float[fxData.Count];
-            var range = new Range(0, inputValues.Length);
+            var range = new Range(0, inputValues.Length - 1);
 
             // Call Var function
             var retCode = Functions.Var<float>(
@@ -4325,7 +4325,7 @@ namespace TALib
 
             // Prepare output array
             var wclPriceValues = new float[fxData.Count];
-            var range = new Range(0, highs.Length);
+            var range = new Range(0, highs.Length - 1);
 
             // Call WclPrice function
             var retCode = Functions.WclPrice<float>(
@@ -4370,7 +4370,7 @@ namespace TALib
 
             // Prepare output array
             var willRValues = new float[fxData.Count];
-            var range = new Range(0, highs.Length);
+            var range = new Range(0, highs.Length - 1);
 
             // Call WillR function
             var retCode = Functions.WillR<float>(
@@ -4414,7 +4414,7 @@ namespace TALib
 
             // Prepare output array
             var wmaValues = new float[fxData.Count];
-            var range = new Range(0, realValues.Length);
+            var range = new Range(0, realValues.Length - 1);
 
             // Call Wma function
             var retCode = Functions.Wma<float>(
@@ -4457,7 +4457,7 @@ namespace TALib
 
             // Prepare output array
             var obvValues = new float[fxData.Count];
-            var range = new Range(0, prices.Length);
+            var range = new Range(0, prices.Length-1);
 
             // Call OBV function
             var retCode = Functions.Obv<float>(
@@ -4508,7 +4508,7 @@ namespace TALib
 
             // Prepare output array
             var adOscValues = new float[fxData.Count];
-            var range = new Range(0, highPrices.Length);
+            var range = new Range(0, highPrices.Length - 1);
 
             // Call AdOsc function
             var retCode = Functions.AdOsc<float>(
@@ -4569,7 +4569,7 @@ namespace TALib
 
             // Prepare output array
             var mfiValues = new float[fxData.Count];
-            var range = new Range(0, highs.Length);
+            var range = new Range(0, highs.Length - 1);
 
             // Call MFI function
             var retCode = Functions.Mfi<float>(
@@ -4623,7 +4623,7 @@ namespace TALib
 
             // Prepare output array
             var adValues = new float[fxData.Count];
-            var range = new Range(0, highPrices.Length);
+            var range = new Range(0, highPrices.Length - 1);
 
             // Call Ad function
             var retCode = Functions.Ad<float>(
