@@ -1,6 +1,6 @@
 ﻿using System.Numerics;
 
-namespace TALib
+namespace TALib.Helpers
 {
     internal static class FunctionHelpers
     {
@@ -113,7 +113,7 @@ namespace TALib
             // Catch special case for fix 26/12 MACD.
             if (optInSlowPeriod != 0)
             {
-                k1 = FunctionHelpers.Two<T>() / (T.CreateChecked(optInSlowPeriod) + T.One);
+                k1 = Two<T>() / (T.CreateChecked(optInSlowPeriod) + T.One);
             }
             else
             {
@@ -123,7 +123,7 @@ namespace TALib
 
             if (optInFastPeriod != 0)
             {
-                k2 = FunctionHelpers.Two<T>() / (T.CreateChecked(optInFastPeriod) + T.One);
+                k2 = Two<T>() / (T.CreateChecked(optInFastPeriod) + T.One);
             }
             else
             {
@@ -176,7 +176,7 @@ namespace TALib
 
             // Calculate the signal/trigger line.
             retCode = CalcExponentialMA(fastEMABuffer, Range.EndAt(nbElement1 - 1), outMacdSignal, out var outRange2, optInSignalPeriod,
-                FunctionHelpers.Two<T>() / (T.CreateChecked(optInSignalPeriod) + T.One));
+                Two<T>() / (T.CreateChecked(optInSignalPeriod) + T.One));
             if (retCode != Core.RetCode.Success)
             {
                 return retCode;
@@ -473,7 +473,7 @@ namespace TALib
             prevLow = low[today];
             prevClose = !close.IsEmpty ? close[today] : T.Zero;
 
-            for (var i = Int32.CreateTruncating(timePeriod) - 1; i > 0; i--)
+            for (var i = int.CreateTruncating(timePeriod) - 1; i > 0; i--)
             {
                 today++;
 
@@ -570,7 +570,7 @@ namespace TALib
         {
             periodWMASub += varNewPrice;
             periodWMASub -= trailingWMAValue;
-            periodWMASum += varNewPrice * FunctionHelpers.Four<T>();
+            periodWMASum += varNewPrice * Four<T>();
             trailingWMAValue = real[idx++];
             varToStoreSmoothedValue = periodWMASum * T.CreateChecked(0.1);
             periodWMASum -= periodWMASub;
@@ -636,10 +636,10 @@ namespace TALib
                 periodWMASum = tempReal;
                 tempReal = real[today++];
                 periodWMASub += tempReal;
-                periodWMASum += tempReal * FunctionHelpers.Two<T>();
+                periodWMASum += tempReal * Two<T>();
                 tempReal = real[today++];
                 periodWMASub += tempReal;
-                periodWMASum += tempReal * FunctionHelpers.Three<T>();
+                periodWMASum += tempReal * Three<T>();
 
                 trailingWMAValue = T.Zero;
 
@@ -738,7 +738,7 @@ namespace TALib
                 var tempReal1 = period;
                 if (!T.IsZero(im) && !T.IsZero(re))
                 {
-                    period = Ninety<T>() * FunctionHelpers.Four<T>() / T.RadiansToDegrees(T.Atan(im / re));
+                    period = Ninety<T>() * Four<T>() / T.RadiansToDegrees(T.Atan(im / re));
                 }
 
                 var tempReal2 = T.CreateChecked(1.5) * tempReal1;
@@ -791,7 +791,7 @@ namespace TALib
 
         public static (int startIndex, int endIndex)? ValidateInputRange(Range inRange, params int[] inputLengths)
         {
-            var inputLength = Int32.MaxValue;
+            var inputLength = int.MaxValue;
 
             foreach (var length in inputLengths)
             {

@@ -1,5 +1,6 @@
 
 using System.Numerics;
+using TALib.Helpers;
 
 
 namespace TALib
