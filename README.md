@@ -10,10 +10,3 @@ This project combines a **Technical Analysis Library** and a custom **Quantitati
 - **Options Pricing**: Includes a Black-Scholes model implementation for options valuation.
 - **Quantitative Finance Tools**: Additional custom tools designed to support portfolio and risk management strategies.
 
-## Installation
-
-Clone the repository and add it to your .NET project as a reference:
-
-```bash
-git clone https://github.com/yourusername/quant-finance-library.git
-cd quant-finance-library
