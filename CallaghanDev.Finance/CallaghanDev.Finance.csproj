@@ -14,7 +14,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\CallaghanDev.Common\CallaghanDev.Common.Math\CallaghanDev.Common.Math.csproj" />
     <ProjectReference Include="..\..\CallaghanDev.Common\CallaghanDev.Utilities\CallaghanDev.Utilities.csproj" />
-    <ProjectReference Include="..\TALib\TALib.csproj" />
   </ItemGroup>
 
 </Project>

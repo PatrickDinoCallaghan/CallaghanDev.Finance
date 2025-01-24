@@ -3,15 +3,13 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.11.35327.3
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CallaghanDev.Finance", "CallaghanDev.Finance\CallaghanDev.Finance.csproj", "{A283E0BC-66CC-4FB6-958B-02D1BB4CF926}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TALib", "TALib\TALib.csproj", "{B69144A8-F59B-4D3B-B12E-5C4993F986C7}"
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Dependencies", "Dependencies", "{52B873A7-7798-472F-AE56-27E326F01BFF}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CallaghanDev.Utilities", "..\CallaghanDev.Common\CallaghanDev.Utilities\CallaghanDev.Utilities.csproj", "{DBDF0167-D858-4C0C-A45C-F5E0889F8AF1}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CallaghanDev.Common.Math", "..\CallaghanDev.Common\CallaghanDev.Common.Math\CallaghanDev.Common.Math.csproj", "{3CDC50A3-E5EB-424E-8AB1-8AB8C0B1FDC5}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CallaghanDev.Finance", "CallaghanDev.Finance\CallaghanDev.Finance.csproj", "{BFF9E212-C9CC-4576-B3D6-05CE2788DCAF}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -19,14 +17,6 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{A283E0BC-66CC-4FB6-958B-02D1BB4CF926}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{A283E0BC-66CC-4FB6-958B-02D1BB4CF926}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{A283E0BC-66CC-4FB6-958B-02D1BB4CF926}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{A283E0BC-66CC-4FB6-958B-02D1BB4CF926}.Release|Any CPU.Build.0 = Release|Any CPU
-		{B69144A8-F59B-4D3B-B12E-5C4993F986C7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{B69144A8-F59B-4D3B-B12E-5C4993F986C7}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{B69144A8-F59B-4D3B-B12E-5C4993F986C7}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{B69144A8-F59B-4D3B-B12E-5C4993F986C7}.Release|Any CPU.Build.0 = Release|Any CPU
 		{DBDF0167-D858-4C0C-A45C-F5E0889F8AF1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{DBDF0167-D858-4C0C-A45C-F5E0889F8AF1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{DBDF0167-D858-4C0C-A45C-F5E0889F8AF1}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -35,6 +25,10 @@ Global
 		{3CDC50A3-E5EB-424E-8AB1-8AB8C0B1FDC5}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{3CDC50A3-E5EB-424E-8AB1-8AB8C0B1FDC5}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{3CDC50A3-E5EB-424E-8AB1-8AB8C0B1FDC5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BFF9E212-C9CC-4576-B3D6-05CE2788DCAF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BFF9E212-C9CC-4576-B3D6-05CE2788DCAF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BFF9E212-C9CC-4576-B3D6-05CE2788DCAF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BFF9E212-C9CC-4576-B3D6-05CE2788DCAF}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
