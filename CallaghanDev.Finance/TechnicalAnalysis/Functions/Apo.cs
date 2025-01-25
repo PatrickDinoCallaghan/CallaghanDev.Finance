@@ -19,10 +19,6 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
         public static int ApoLookback(int optInFastPeriod = 12, int optInSlowPeriod = 26, Core.MAType optInMAType = Core.MAType.Sma) =>
             optInFastPeriod < 2 || optInSlowPeriod < 2 ? -1 : MaLookback(Math.Max(optInSlowPeriod, optInFastPeriod), optInMAType);
 
-        
-        
-        
-
         private static Core.RetCode Apo<T>(
             T[] inReal,
             Range inRange,

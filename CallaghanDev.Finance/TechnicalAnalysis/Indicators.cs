@@ -1,13 +1,19 @@
-﻿using System.Reflection;
+﻿using System.Numerics;
+using System.Reflection;
+using System.Runtime.InteropServices.Marshalling;
 using CallaghanDev.Finance.TechnicalAnalysis.Exceptions;
+using CallaghanDev.Utilities.Extensions;
 
 namespace CallaghanDev.Finance.TechnicalAnalysis
 {
-    public class Indicators
+    //For each indicator the first element of the returned array corresponds to the oldest data point after the lookback period,
+    //and the last element corresponds to the most current datapoint.
+    public class Indicators<T> where T : struct, IFloatingPoint<T>
     {
-        public float[] Accbands(List<IndicatorDataPoint> fxData, int optinTimePeriod = 20)
+        public float[] Accbands(List<ITradingDataPoint<T>> fxData, int optinTimePeriod = 20)
         {
-            // Validate input data length
+            int lookback = Functions.AccbandsLookback(optinTimePeriod);
+            
             if (fxData == null || fxData.Count < Functions.AccbandsLookback(optinTimePeriod))
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
@@ -16,9 +22,9 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
 
             // Extract high, low, and close prices as floats
-            var highPrices = fxData.Select(d => Convert.ToSingle(d.High ?? 0m)).ToArray().AsSpan();
-            var lowPrices = fxData.Select(d => Convert.ToSingle(d.Low ?? 0m)).ToArray().AsSpan();
-            var closePrices = fxData.Select(d => Convert.ToSingle(d.Offer ?? d.Bid ?? 0m)).ToArray().AsSpan();
+            var highPrices = fxData.Select(d => Convert.ToSingle(d.High.GetValueOrDefault())).ToArray().AsSpan();
+            var lowPrices = fxData.Select(d => Convert.ToSingle(d.Low.GetValueOrDefault())).ToArray().AsSpan();
+            var closePrices = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
             // Validate lengths
             if (highPrices.Length != lowPrices.Length || lowPrices.Length != closePrices.Length)
@@ -26,10 +32,12 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
                 throw new Exception("Input data lengths do not match.");
             }
 
-            // Prepare output arrays
-            var upperBand = new float[fxData.Count];
-            var middleBand = new float[fxData.Count];
-            var lowerBand = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookback;
+
+            
+            var upperBand = new float[NoReturned];
+            var middleBand = new float[NoReturned];
+            var lowerBand = new float[NoReturned];
 
             var range = new Range(0, highPrices.Length-1);
 
@@ -49,14 +57,15 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             if (retCode == Core.RetCode.Success)
             {
                 var signals = new List<float>();
-
+                int x = 0;
                 for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
                 {
-                    if (closePrices[i] > upperBand[i])
+
+                    if (closePrices[x] > upperBand[x])
                     {
                         signals.Add(1);
                     }
-                    else if (closePrices[i] < lowerBand[i])
+                    else if (closePrices[x] < lowerBand[x])
                     {
                         signals.Add(-1);
                     }
@@ -64,9 +73,10 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
                     {
                         signals.Add(0);
                     }
+                    x++;
                 }
 
-                return signals.ToArray(); // Return the array of signals
+                return signals.ToArray(); 
             }
             else
             {
@@ -74,10 +84,11 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
 
         }
-        public float[] Acos(List<IndicatorDataPoint> fxData)
+        public float[] Acos(List<ITradingDataPoint<T>> fxData)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.AcosLookback())
+            int lookback = Functions.AcosLookback();
+            
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -85,21 +96,23 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
 
             // Extract close prices as floats
-            var closePrices = fxData.Select(d => Convert.ToSingle(d.Offer ?? d.Bid ?? 0m)).ToArray().AsSpan();
+            var PriceChanges = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())- Convert.ToSingle(d.Open.GetValueOrDefault())).ToArray().NormalizeToRange().AsSpan();
 
             // Validate lengths
-            if (closePrices.Length < 1)
+            if (PriceChanges.Length < 1)
             {
                 throw new Exception("Invalid close price data.");
             }
 
-            // Prepare output arrays
-            var acosValues = new float[fxData.Count];
-            var range = new Range(0, closePrices.Length-1);
+
+            int NoReturned = fxData.Count() - lookback;
+            
+            var acosValues = new float[NoReturned];
+            var range = new Range(0, PriceChanges.Length-1);
 
             // Call Acos function
             var retCode = Functions.Acos<float>(
-                closePrices,
+                PriceChanges,
                 range,
                 acosValues,
                 out var outputRange);
@@ -107,26 +120,19 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, calculate normalized signals
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    var acosValue = acosValues[i];
-
-                    signals.Add(acosValue); // Round to nearest int and add to signals
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return acosValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating ACos indicator. RetCode: {retCode}");
             }
         }
-        public float[] Add(List<IndicatorDataPoint> fxData)
+        public float[] Add(List<ITradingDataPoint<T>> fxData)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.AcosLookback())
+            int lookback = Functions.AcosLookback();
+
+            
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -134,8 +140,8 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
 
             // Extract two sets of values to be added, e.g., Bid and Offer
-            var bidPrices = fxData.Select(d => Convert.ToSingle(d.Bid ?? 0m)).ToArray().AsSpan();
-            var offerPrices = fxData.Select(d => Convert.ToSingle(d.Offer ?? 0m)).ToArray().AsSpan();
+            var bidPrices = fxData.Select(d => Convert.ToSingle(d.Bid.GetValueOrDefault())).ToArray().AsSpan();
+            var offerPrices = fxData.Select(d => Convert.ToSingle(d.Offer.GetValueOrDefault())).ToArray().AsSpan();
 
             // Validate lengths
             if (bidPrices.Length != offerPrices.Length)
@@ -143,8 +149,9 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
                 throw new Exception("Input data lengths do not match.");
             }
 
-            // Prepare output array
-            var addedValues = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookback;
+            
+            var addedValues = new float[NoReturned];
             var range = new Range(0, bidPrices.Length-1);
 
             // Call Add function
@@ -158,25 +165,18 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, calculate normalized signals
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    var addedValue = addedValues[i];
-
-                    signals.Add(addedValue); // Round to nearest int and add to signals
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return addedValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating Add indicator. RetCode: {retCode}");
             }
         }
-        public float[] Adx(List<IndicatorDataPoint> fxData, int timePeriod = 14)
+        public float[] Adx(List<ITradingDataPoint<T>> fxData, int timePeriod = 14)
         {
-            // Validate input data length
+            int lookback = Functions.AdxLookback(timePeriod);
+
+            
             if (fxData == null || fxData.Count < Functions.AdxLookback(timePeriod))
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
@@ -184,9 +184,9 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
                 throw new NotEnoughDataException($"Not enough data to calculate {methodName} indicator for the chosen time period ({timePeriod}).");
             }
             // Extract high, low, and close prices as floats
-            var highPrices = fxData.Select(d => Convert.ToSingle(d.High ?? 0m)).ToArray().AsSpan();
-            var lowPrices = fxData.Select(d => Convert.ToSingle(d.Low ?? 0m)).ToArray().AsSpan();
-            var closePrices = fxData.Select(d => Convert.ToSingle(d.Offer ?? d.Bid ?? 0m)).ToArray().AsSpan();
+            var highPrices = fxData.Select(d => Convert.ToSingle(d.High.GetValueOrDefault())).ToArray().AsSpan();
+            var lowPrices = fxData.Select(d => Convert.ToSingle(d.Low.GetValueOrDefault())).ToArray().AsSpan();
+            var closePrices = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
             // Validate lengths
             if (highPrices.Length != lowPrices.Length || lowPrices.Length != closePrices.Length)
@@ -194,8 +194,10 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
                 throw new Exception("Input data lengths do not match.");
             }
 
-            // Prepare output array
-            var adxValues = new float[fxData.Count];
+
+            int NoReturned = fxData.Count() - lookback;
+            
+            var adxValues = new float[NoReturned];
             var range = new Range(0, highPrices.Length - 1);
 
             // Call Adx function
@@ -211,25 +213,17 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, calculate normalized signals
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    var adxValue = adxValues[i];
-
-                    signals.Add(adxValue); // Round to nearest int and add to signals
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return adxValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating ADX indicator. RetCode: {retCode}");
             }
         }
-        public float[] Adxr(List<IndicatorDataPoint> fxData, int timePeriod = 14)
+        public float[] Adxr(List<ITradingDataPoint<T>> fxData, int timePeriod = 14)
         {
-            // Validate input data length
+            int lookback = Functions.AdxrLookback(timePeriod);
+            
             if (fxData == null || fxData.Count < Functions.AdxrLookback(timePeriod))
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
@@ -238,9 +232,9 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
 
             // Extract high, low, and close prices as floats
-            var highPrices = fxData.Select(d => Convert.ToSingle(d.High ?? 0m)).ToArray().AsSpan();
-            var lowPrices = fxData.Select(d => Convert.ToSingle(d.Low ?? 0m)).ToArray().AsSpan();
-            var closePrices = fxData.Select(d => Convert.ToSingle(d.Offer ?? d.Bid ?? 0m)).ToArray().AsSpan();
+            var highPrices = fxData.Select(d => Convert.ToSingle(d.High.GetValueOrDefault())).ToArray().AsSpan();
+            var lowPrices = fxData.Select(d => Convert.ToSingle(d.Low.GetValueOrDefault())).ToArray().AsSpan();
+            var closePrices = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
             // Validate lengths
             if (highPrices.Length != lowPrices.Length || lowPrices.Length != closePrices.Length)
@@ -248,8 +242,9 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
                 throw new Exception("Input data lengths do not match.");
             }
 
-            // Prepare output array
-            var adxrValues = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookback;
+            
+            var adxrValues = new float[NoReturned];
             var range = new Range(0, highPrices.Length - 1);
 
             // Call Adxr function
@@ -265,25 +260,17 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, calculate normalized signals
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    var adxrValue = adxrValues[i];
-
-                    signals.Add(adxrValue); // Round to nearest int and add to signals
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return adxrValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating ADXR indicator. RetCode: {retCode}");
             }
         }
-        public float[] Apo(List<IndicatorDataPoint> fxData, int fastPeriod = 12, int slowPeriod = 26, Core.MAType maType = Core.MAType.Sma)
+        public float[] Apo(List<ITradingDataPoint<T>> fxData, int fastPeriod = 12, int slowPeriod = 26, Core.MAType maType = Core.MAType.Sma)
         {
-            // Validate input data length
+            int lookback = Functions.ApoLookback(fastPeriod, slowPeriod);
+            
             if (fxData == null || fxData.Count < Functions.ApoLookback(fastPeriod, slowPeriod))
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
@@ -291,10 +278,11 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
                 throw new NotEnoughDataException($"Not enough data to calculate {methodName} indicator for the chosen fast time period ({fastPeriod}) and the chosen slow time period {slowPeriod}.");
             }
             // Extract close prices as floats
-            var closePrices = fxData.Select(d => Convert.ToSingle(d.Offer ?? d.Bid ?? 0m)).ToArray().AsSpan();
+            var closePrices = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var apoValues = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookback;
+            
+            var apoValues = new float[NoReturned];
             var range = new Range(0, closePrices.Length-1);
 
             // Call Apo function
@@ -310,34 +298,25 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, calculate normalized signals
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    var apoValue = apoValues[i];
-
-
-                    signals.Add(apoValue); // Round to nearest int and add to signals
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return apoValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating APO indicator. RetCode: {retCode}");
             }
         }
-        public float[] AroonUp(List<IndicatorDataPoint> fxData, int timePeriod = 14)
+        public float[] AroonUp(List<ITradingDataPoint<T>> fxData, int timePeriod = 14)
         {
             return Aroon(fxData, timePeriod).aroonUp;
         }
-        public float[] AroonDown(List<IndicatorDataPoint> fxData, int timePeriod = 14)
+        public float[] AroonDown(List<ITradingDataPoint<T>> fxData, int timePeriod = 14)
         {
             return Aroon(fxData, timePeriod).aroonUp;
         }
-        private (float[] aroonUp, float[] aroonDown) Aroon(List<IndicatorDataPoint> fxData, int timePeriod = 14)
+        private (float[] aroonUp, float[] aroonDown) Aroon(List<ITradingDataPoint<T>> fxData, int timePeriod = 14)
         {
-            // Validate input data length
+            int lookback = Functions.AroonLookback(timePeriod);
+            
             if (fxData == null || fxData.Count < Functions.AroonLookback(timePeriod))
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
@@ -345,8 +324,8 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
                 throw new NotEnoughDataException($"Not enough data to calculate {methodName} indicator for the chosen time period ({timePeriod}).");
             }
             // Extract high and low prices as floats
-            var highPrices = fxData.Select(d => Convert.ToSingle(d.High ?? 0m)).ToArray().AsSpan();
-            var lowPrices = fxData.Select(d => Convert.ToSingle(d.Low ?? 0m)).ToArray().AsSpan();
+            var highPrices = fxData.Select(d => Convert.ToSingle(d.High.GetValueOrDefault())).ToArray().AsSpan();
+            var lowPrices = fxData.Select(d => Convert.ToSingle(d.Low.GetValueOrDefault())).ToArray().AsSpan();
 
             // Validate lengths
             if (highPrices.Length != lowPrices.Length)
@@ -354,9 +333,11 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
                 throw new Exception("Input data lengths do not match.");
             }
 
-            // Prepare output arrays
-            var aroonUpValues = new float[fxData.Count];
-            var aroonDownValues = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookback;
+
+            
+            var aroonUpValues = new float[NoReturned];
+            var aroonDownValues = new float[NoReturned];
             var range = new Range(0, highPrices.Length - 1);
 
             // Call Aroon function
@@ -372,26 +353,18 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, calculate normalized signals
             if (retCode == Core.RetCode.Success)
             {
-                var aroonUpSignals = new List<float>();
-                var aroonDownSignals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    aroonUpSignals.Add(aroonUpValues[i]);
-                    aroonDownSignals.Add(aroonDownValues[i]);
-                }
-
-                return (aroonUpSignals.ToArray(), aroonDownSignals.ToArray()); // Return both arrays of signals
+                return (aroonUpValues.ToArray(), aroonDownValues.ToArray()); // Return both arrays of signals
             }
             else
             {
                 throw new Exception($"Error calculating Aroon indicator. RetCode: {retCode}");
             }
         }
-        public float[] AroonOsc(List<IndicatorDataPoint> fxData, int timePeriod = 14)
+        public float[] AroonOsc(List<ITradingDataPoint<T>> fxData, int timePeriod = 14)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.AroonOscLookback(timePeriod))
+            int lookback = Functions.AroonOscLookback(timePeriod);
+            
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -399,8 +372,8 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
 
             // Extract high and low prices as floats
-            var highPrices = fxData.Select(d => Convert.ToSingle(d.High ?? 0m)).ToArray().AsSpan();
-            var lowPrices = fxData.Select(d => Convert.ToSingle(d.Low ?? 0m)).ToArray().AsSpan();
+            var highPrices = fxData.Select(d => Convert.ToSingle(d.High.GetValueOrDefault())).ToArray().AsSpan();
+            var lowPrices = fxData.Select(d => Convert.ToSingle(d.Low.GetValueOrDefault())).ToArray().AsSpan();
 
             // Validate lengths
             if (highPrices.Length != lowPrices.Length)
@@ -408,8 +381,9 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
                 throw new Exception("Input data lengths do not match.");
             }
 
-            // Prepare output array
-            var aroonOscValues = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookback;
+            
+            var aroonOscValues = new float[NoReturned];
             var range = new Range(0, highPrices.Length-1);
 
             // Call AroonOsc function
@@ -424,25 +398,18 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, calculate normalized signals
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    var aroonOscValue = aroonOscValues[i];
-
-                    signals.Add(aroonOscValue);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return aroonOscValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating Aroon Oscillator. RetCode: {retCode}");
             }
         }
-        public float[] Asin(List<IndicatorDataPoint> fxData)
+        public float[] Asin(List<ITradingDataPoint<T>> fxData)
         {
-            // Validate input data length
+            int lookback = Functions.AsinLookback();
+
+            
             if (fxData == null || fxData.Count < Functions.AsinLookback())
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
@@ -450,16 +417,18 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
                 throw new NotEnoughDataException($"Not enough data to calculate {methodName} indicator for the chosen time period.");
             }
 
-            // Extract close prices as floats
-            var closePrices = fxData.Select(d => Convert.ToSingle(d.Offer ?? d.Bid ?? 0m)).ToArray().AsSpan();
+            var PriceChanges = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault()) - Convert.ToSingle(d.Open.GetValueOrDefault())).ToArray().NormalizeToRange().AsSpan();
 
-            // Prepare output array
-            var asinValues = new float[fxData.Count];
-            var range = new Range(0, closePrices.Length - 1);
+
+            int NoReturned = fxData.Count() - lookback;
+            
+            var asinValues = new float[NoReturned];
+
+            var range = new Range(0, PriceChanges.Length - 1);
 
             // Call Asin function
             var retCode = Functions.Asin<float>(
-                closePrices,
+                PriceChanges,
                 range,
                 asinValues,
                 out var outputRange);
@@ -467,42 +436,36 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, calculate normalized signals
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    var asinValue = asinValues[i];
-
-
-                    signals.Add(asinValue); // Round to nearest int and add to signals
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return asinValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating ASIN indicator. RetCode: {retCode}");
             }
         }
-        public float[] Atan(List<IndicatorDataPoint> fxData)
+        public float[] Atan(List<ITradingDataPoint<T>> fxData)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.AtanLookback())
+            int lookback = Functions.AtanLookback();
+
+            
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
                 throw new NotEnoughDataException($"Not enough data to calculate {methodName} indicator for the chosen time period.");
             }
-            // Extract close prices as floats
-            var closePrices = fxData.Select(d => Convert.ToSingle(d.Offer ?? d.Bid ?? 0m)).ToArray().AsSpan();
 
-            // Prepare output array
-            var atanValues = new float[fxData.Count];
-            var range = new Range(0, closePrices.Length - 1);
+            var PriceChanges = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault()) - Convert.ToSingle(d.Open.GetValueOrDefault())).ToArray().NormalizeToRange().AsSpan();
+
+            int NoReturned = fxData.Count() - lookback;
+            
+            var atanValues = new float[NoReturned];
+
+            var range = new Range(0, PriceChanges.Length - 1);
 
             // Call Atan function
             var retCode = Functions.Atan<float>(
-                closePrices,
+                PriceChanges,
                 range,
                 atanValues,
                 out var outputRange);
@@ -510,28 +473,20 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, calculate normalized signals
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    var atanValue = atanValues[i];
-
-
-                    signals.Add(atanValue); // Round to nearest int and add to signals
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return atanValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating ATAN indicator. RetCode: {retCode}");
             }
         }
-        public float[] Atr(List<IndicatorDataPoint> fxData, int timePeriod = 14)
+        public float[] Atr(List<ITradingDataPoint<T>> fxData, int timePeriod = 14)
         {
-            // Validate input data length
+            
 
-            if (fxData == null || fxData.Count < Functions.AtrLookback())
+            int lookback = Functions.AtrLookback();
+
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -539,9 +494,9 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
 
             // Extract high, low, and close prices as floats
-            var highPrices = fxData.Select(d => Convert.ToSingle(d.High ?? 0m)).ToArray().AsSpan();
-            var lowPrices = fxData.Select(d => Convert.ToSingle(d.Low ?? 0m)).ToArray().AsSpan();
-            var closePrices = fxData.Select(d => Convert.ToSingle(d.Offer ?? d.Bid ?? 0m)).ToArray().AsSpan();
+            var highPrices = fxData.Select(d => Convert.ToSingle(d.High.GetValueOrDefault())).ToArray().AsSpan();
+            var lowPrices = fxData.Select(d => Convert.ToSingle(d.Low.GetValueOrDefault())).ToArray().AsSpan();
+            var closePrices = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
             // Validate lengths
             if (highPrices.Length != lowPrices.Length || lowPrices.Length != closePrices.Length)
@@ -549,8 +504,9 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
                 throw new Exception("Input data lengths do not match.");
             }
 
-            // Prepare output array
-            var atrValues = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookback;
+            
+            var atrValues = new float[NoReturned];
             var range = new Range(0, highPrices.Length-1);
 
             // Call Atr function
@@ -566,26 +522,18 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, calculate normalized signals
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    var atrValue = atrValues[i];
-
-                    signals.Add(atrValue); // Round to nearest int and add to signals
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return atrValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating ATR indicator. RetCode: {retCode}");
             }
         }
-        public float[] AvgDev(List<IndicatorDataPoint> fxData, int timePeriod = 14)
+        public float[] AvgDev(List<ITradingDataPoint<T>> fxData, int timePeriod = 14)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.AvgDevLookback())
+            int lookback = Functions.AvgDevLookback();
+            
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -593,10 +541,11 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
 
             // Extract close prices as floats
-            var closePrices = fxData.Select(d => Convert.ToSingle(d.Offer ?? d.Bid ?? 0m)).ToArray().AsSpan();
+            var closePrices = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var avgDevValues = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookback;
+            
+            var avgDevValues = new float[NoReturned];
             var range = new Range(0, closePrices.Length - 1);
 
             // Call AvgDev function
@@ -610,26 +559,18 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, calculate normalized signals
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    var avgDevValue = avgDevValues[i];
-
-                    signals.Add(avgDevValue); // Round to nearest int and add to signals
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return avgDevValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating Average Deviation indicator. RetCode: {retCode}");
             }
         }
-        public float[] AvgPrice(List<IndicatorDataPoint> fxData)
+        public float[] AvgPrice(List<ITradingDataPoint<T>> fxData)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.AvgPriceLookback())
+            int lookback = Functions.AvgPriceLookback();
+            
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -638,10 +579,10 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
 
 
             // Extract open, high, low, and close prices as floats
-            var openPrices = fxData.Select(d => Convert.ToSingle(d.MidOpen ?? 0m)).ToArray().AsSpan();
-            var highPrices = fxData.Select(d => Convert.ToSingle(d.High ?? 0m)).ToArray().AsSpan();
-            var lowPrices = fxData.Select(d => Convert.ToSingle(d.Low ?? 0m)).ToArray().AsSpan();
-            var closePrices = fxData.Select(d => Convert.ToSingle(d.Offer ?? d.Bid ?? 0m)).ToArray().AsSpan();
+            var openPrices = fxData.Select(d => Convert.ToSingle(d.Open.GetValueOrDefault())).ToArray().AsSpan();
+            var highPrices = fxData.Select(d => Convert.ToSingle(d.High.GetValueOrDefault())).ToArray().AsSpan();
+            var lowPrices = fxData.Select(d => Convert.ToSingle(d.Low.GetValueOrDefault())).ToArray().AsSpan();
+            var closePrices = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
             // Validate lengths
             if (openPrices.Length != highPrices.Length || highPrices.Length != lowPrices.Length || lowPrices.Length != closePrices.Length)
@@ -649,8 +590,9 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
                 throw new Exception("Input data lengths do not match.");
             }
 
-            // Prepare output array
-            var avgPriceValues = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookback;
+            
+            var avgPriceValues = new float[NoReturned];
             var range = new Range(0, openPrices.Length - 1);
 
             // Call AvgPrice function
@@ -666,16 +608,7 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, calculate normalized signals
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    var avgPriceValue = avgPriceValues[i];
-
-                    signals.Add(avgPriceValue); // Round to nearest int and add to signals
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return avgPriceValues.ToArray(); 
             }
             else
             {
@@ -683,21 +616,23 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
         }
 
-        public float[] BbandsUpperBandSignals(List<IndicatorDataPoint> fxData, int timePeriod = 5, double nbDevUp = 2.0, double nbDevDn = 2.0, Core.MAType maType = Core.MAType.Sma)
+        public float[] BbandsUpperBandSignals(List<ITradingDataPoint<T>> fxData, int timePeriod = 5, double nbDevUp = 2.0, double nbDevDn = 2.0, Core.MAType maType = Core.MAType.Sma)
         {
             return Bbands(fxData, timePeriod, nbDevUp, nbDevDn, maType).upperBandSignals;
         }
-        public float[] BbandsMiddleBandSignals(List<IndicatorDataPoint> fxData, int timePeriod = 5, double nbDevUp = 2.0, double nbDevDn = 2.0, Core.MAType maType = Core.MAType.Sma)
+        public float[] BbandsMiddleBandSignals(List<ITradingDataPoint<T>> fxData, int timePeriod = 5, double nbDevUp = 2.0, double nbDevDn = 2.0, Core.MAType maType = Core.MAType.Sma)
         {
             return Bbands(fxData, timePeriod, nbDevUp, nbDevDn, maType).middleBandSignals;
         }
-        public float[] BbandsLowerBandSignals(List<IndicatorDataPoint> fxData, int timePeriod = 5, double nbDevUp = 2.0, double nbDevDn = 2.0, Core.MAType maType = Core.MAType.Sma)
+        public float[] BbandsLowerBandSignals(List<ITradingDataPoint<T>> fxData, int timePeriod = 5, double nbDevUp = 2.0, double nbDevDn = 2.0, Core.MAType maType = Core.MAType.Sma)
         {
             return Bbands(fxData, timePeriod, nbDevUp, nbDevDn, maType).lowerBandSignals;
         }
-        private (float[] upperBandSignals, float[] middleBandSignals, float[] lowerBandSignals) Bbands(List<IndicatorDataPoint> fxData, int timePeriod = 5, double nbDevUp = 2.0, double nbDevDn = 2.0, Core.MAType maType = Core.MAType.Sma)
+        private (float[] upperBandSignals, float[] middleBandSignals, float[] lowerBandSignals) Bbands(List<ITradingDataPoint<T>> fxData, int timePeriod = 5, double nbDevUp = 2.0, double nbDevDn = 2.0, Core.MAType maType = Core.MAType.Sma)
         {
-            // Validate input data length
+            int lookback = Functions.BbandsLookback();
+
+            
             if (fxData == null || fxData.Count < Functions.BbandsLookback())
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
@@ -705,13 +640,14 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
                 throw new NotEnoughDataException($"Not enough data to calculate {methodName} indicator for the chosen time period {timePeriod}.");
             }
 
-            // Extract close prices as floats
-            var closePrices = fxData.Select(d => Convert.ToSingle(d.Offer ?? d.Bid ?? 0m)).ToArray().AsSpan();
+            int NoReturned = fxData.Count() - lookback;
 
-            // Prepare output arrays
-            var upperBandValues = new float[fxData.Count];
-            var middleBandValues = new float[fxData.Count];
-            var lowerBandValues = new float[fxData.Count];
+            // Extract close prices as floats
+            var closePrices = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
+
+            var upperBandValues = new float[NoReturned];
+            var middleBandValues = new float[NoReturned];
+            var lowerBandValues = new float[NoReturned];
             var range = new Range(0, closePrices.Length - 1);
 
             // Call Bbands function
@@ -730,18 +666,7 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, calculate normalized signals
             if (retCode == Core.RetCode.Success)
             {
-                var upperBandSignals = new List<float>();
-                var middleBandSignals = new List<float>();
-                var lowerBandSignals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    upperBandSignals.Add(upperBandValues[i]);
-                    middleBandSignals.Add(middleBandValues[i]);
-                    lowerBandSignals.Add(lowerBandValues[i]);
-                }
-
-                return (upperBandSignals.ToArray(), middleBandSignals.ToArray(), lowerBandSignals.ToArray());
+                return (upperBandValues.ToArray(), middleBandValues.ToArray(), lowerBandValues.ToArray());
             }
             else
             {
@@ -749,10 +674,11 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
         }
 
-        public float[] Beta(List<IndicatorDataPoint> fxData1, List<IndicatorDataPoint> fxData2, int timePeriod = 5)
+        public float[] Beta(List<ITradingDataPoint<T>> fxData1, List<ITradingDataPoint<T>> fxData2, int timePeriod = 5)
         {
-            // Validate input data length
-            if (fxData1 == null || fxData1.Count < Functions.BetaLookback() ||fxData2.Count < Functions.BetaLookback())
+            int lookback = Functions.BetaLookback();
+            
+            if (fxData1 == null || fxData1.Count < lookback || fxData2.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -765,11 +691,13 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
 
             // Extract close prices from both data sets
-            var closePrices1 = fxData1.Select(d => Convert.ToSingle(d.Offer ?? d.Bid ?? 0m)).ToArray().AsSpan();
-            var closePrices2 = fxData2.Select(d => Convert.ToSingle(d.Offer ?? d.Bid ?? 0m)).ToArray().AsSpan();
+            var closePrices1 = fxData1.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
+            var closePrices2 = fxData2.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var betaValues = new float[fxData1.Count];
+            int NoReturned = fxData1.Count() - lookback;
+
+            
+            var betaValues = new float[NoReturned];
             var range = new Range(0, closePrices1.Length - 1);
 
             // Call Beta function
@@ -784,27 +712,18 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, calculate normalized signals
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    var betaValue = betaValues[i];
-
-
-                    signals.Add(betaValue); // Round to nearest int and add to signals
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return betaValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating Beta indicator. RetCode: {retCode}");
             }
         }
-        public float[] Bop(List<IndicatorDataPoint> fxData)
+        public float[] Bop(List<ITradingDataPoint<T>> fxData)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.BopLookback() )
+            int lookback = Functions.BopLookback();
+            
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -813,13 +732,15 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
 
 
             // Extract open, high, low, and close prices as floats
-            var openPrices = fxData.Select(d => Convert.ToSingle(d.MidOpen ?? 0m)).ToArray().AsSpan();
-            var highPrices = fxData.Select(d => Convert.ToSingle(d.High ?? 0m)).ToArray().AsSpan();
-            var lowPrices = fxData.Select(d => Convert.ToSingle(d.Low ?? 0m)).ToArray().AsSpan();
-            var closePrices = fxData.Select(d => Convert.ToSingle(d.Offer ?? d.Bid ?? 0m)).ToArray().AsSpan();
+            var openPrices = fxData.Select(d => Convert.ToSingle(d.Open.GetValueOrDefault())).ToArray().AsSpan();
+            var highPrices = fxData.Select(d => Convert.ToSingle(d.High.GetValueOrDefault())).ToArray().AsSpan();
+            var lowPrices = fxData.Select(d => Convert.ToSingle(d.Low.GetValueOrDefault())).ToArray().AsSpan();
+            var closePrices = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var bopValues = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookback;
+
+            
+            var bopValues = new float[NoReturned];
             var range = new Range(0, openPrices.Length - 1);
 
             // Call Bop function
@@ -835,26 +756,18 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, calculate normalized signals
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    var bopValue = bopValues[i];
-
-                    signals.Add(bopValue);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return bopValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating Balance of Power indicator. RetCode: {retCode}");
             }
         }
-        public float[] Cci(List<IndicatorDataPoint> fxData, int timePeriod = 14)
+        public float[] Cci(List<ITradingDataPoint<T>> fxData, int timePeriod = 14)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.CciLookback())
+            int lookback = Functions.CciLookback(timePeriod);
+            
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -862,12 +775,14 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
 
             // Extract high, low, and close prices as floats
-            var highPrices = fxData.Select(d => Convert.ToSingle(d.High ?? 0m)).ToArray().AsSpan();
-            var lowPrices = fxData.Select(d => Convert.ToSingle(d.Low ?? 0m)).ToArray().AsSpan();
-            var closePrices = fxData.Select(d => Convert.ToSingle(d.Offer ?? d.Bid ?? 0m)).ToArray().AsSpan();
+            var highPrices = fxData.Select(d => Convert.ToSingle(d.High.GetValueOrDefault())).ToArray().AsSpan();
+            var lowPrices = fxData.Select(d => Convert.ToSingle(d.Low.GetValueOrDefault())).ToArray().AsSpan();
+            var closePrices = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var cciValues = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookback;
+
+            
+            var cciValues = new float[NoReturned];
             var range = new Range(0, highPrices.Length - 1);
 
             // Call CCI function
@@ -883,25 +798,18 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, calculate normalized signals
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    var cciValue = cciValues[i];
-                    signals.Add(cciValue);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return cciValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating CCI indicator. RetCode: {retCode}");
             }
         }
-        public float[] Ceil(List<IndicatorDataPoint> fxData)
+        public float[] Ceil(List<ITradingDataPoint<T>> fxData)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.CeilLookback())
+            int lookback = Functions.CeilLookback();
+            
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -909,10 +817,11 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
 
             // Extract prices as floats (using Offer or Bid values)
-            var prices = fxData.Select(d => Convert.ToSingle(d.Offer ?? d.Bid ?? 0m)).ToArray().AsSpan();
+            var prices = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var ceilValues = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookback;
+            
+            var ceilValues = new float[NoReturned];
             var range = new Range(0, prices.Length - 1);
 
             // Call Ceil function
@@ -925,25 +834,19 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, calculate normalized signals
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    var ceilValue = ceilValues[i];
-                    signals.Add(ceilValue);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return ceilValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating Ceiling indicator. RetCode: {retCode}");
             }
         }
-        public float[] Cmo(List<IndicatorDataPoint> fxData, int timePeriod = 14)
+        public float[] Cmo(List<ITradingDataPoint<T>> fxData, int timePeriod = 14)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.CmoLookback())
+            int lookback = Functions.CmoLookback(timePeriod);
+
+            
+            if (fxData == null || fxData.Count < lookback )
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -951,10 +854,12 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
 
             // Extract prices as floats (using Offer or Bid values)
-            var prices = fxData.Select(d => Convert.ToSingle(d.Offer ?? d.Bid ?? 0m)).ToArray().AsSpan();
+            var prices = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var cmoValues = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookback;
+
+            
+            var cmoValues = new float[NoReturned];
             var range = new Range(0, prices.Length - 1);
 
             // Call CMO function
@@ -968,26 +873,18 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, calculate normalized signals
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    var cmoValue = cmoValues[i];
-
-                    signals.Add(cmoValue);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return cmoValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating CMO indicator. RetCode: {retCode}");
             }
         }
-        public float[] Correl(List<IndicatorDataPoint> fxData1, List<IndicatorDataPoint> fxData2, int timePeriod = 30)
+        public float[] Correl(List<ITradingDataPoint<T>> fxData1, List<ITradingDataPoint<T>> fxData2, int timePeriod = 30)
         {
-            // Validate input data length
-            if (fxData1 == null || fxData2 == null || fxData1.Count < Functions.CorrelLookback() || fxData2.Count < Functions.CorrelLookback())
+            int lookback = Functions.CorrelLookback(timePeriod); 
+            
+            if (fxData1 == null || fxData2 == null || fxData1.Count < lookback || fxData2.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -995,11 +892,12 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
 
             // Extract prices as floats (using Offer or Bid values)
-            var prices1 = fxData1.Select(d => Convert.ToSingle(d.Offer ?? d.Bid ?? 0m)).ToArray().AsSpan();
-            var prices2 = fxData2.Select(d => Convert.ToSingle(d.Offer ?? d.Bid ?? 0m)).ToArray().AsSpan();
+            var prices1 = fxData1.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
+            var prices2 = fxData2.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var correlValues = new float[fxData1.Count];
+            int NoReturned = fxData1.Count() - lookback;
+            
+            var correlValues = new float[NoReturned];
             var range = new Range(0, prices1.Length - 1);
 
             // Call Correl function
@@ -1014,68 +912,52 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, calculate normalized signals
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    var correlValue = correlValues[i];
-
-                    signals.Add(correlValue);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return correlValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating CORREL indicator. RetCode: {retCode}");
             }
         }
-        public float[] Cos(List<IndicatorDataPoint> fxData)
+        public float[] Cos(List<ITradingDataPoint<T>> fxData)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.CosLookback())
+            int lookback = Functions.CosLookback();
+
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
                 throw new NotEnoughDataException($"Not enough data to calculate {methodName} indicator for the chosen time period.");
             }
-            // Extract prices as floats (using Offer or Bid values)
-            var prices = fxData.Select(d => Convert.ToSingle(d.Offer ?? d.Bid ?? 0m)).ToArray().AsSpan();
 
-            // Prepare output array
-            var cosValues = new float[fxData.Count];
+            var prices = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
+
+            int NoReturned = fxData.Count() - lookback;
+
+            var cosValues = new float[NoReturned];
             var range = new Range(0, prices.Length - 1);
 
-            // Call Cos function
             var retCode = Functions.Cos<float>(
                 prices,
                 range,
                 cosValues,
                 out var outputRange);
 
-            // If successful, calculate normalized signals
+
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    var cosValue = cosValues[i];
-
-                    signals.Add(cosValue);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return cosValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating COS indicator. RetCode: {retCode}");
             }
         }
-        public float[] Cosh(List<IndicatorDataPoint> fxData)
+        public float[] Cosh(List<ITradingDataPoint<T>> fxData)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.CoshLookback())
+            int lookback = Functions.CoshLookback();
+            
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -1083,15 +965,18 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
 
             // Extract prices as floats (using Offer or Bid values)
-            var prices = fxData.Select(d => Convert.ToSingle(d.Offer ?? d.Bid ?? 0m)).ToArray().AsSpan();
 
-            // Prepare output array
-            var coshValues = new float[fxData.Count];
-            var range = new Range(0, prices.Length - 1);
+            var PriceChanges = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault()) - Convert.ToSingle(d.Open.GetValueOrDefault())).ToArray().NormalizeToRange().AsSpan();
+
+            int NoReturned = fxData.Count() - lookback;
+
+            
+            var coshValues = new float[NoReturned];
+            var range = new Range(0, PriceChanges.Length - 1);
 
             // Call Cosh function
             var retCode = Functions.Cosh<float>(
-                prices,
+                PriceChanges,
                 range,
                 coshValues,
                 out var outputRange);
@@ -1099,26 +984,18 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, calculate normalized signals
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    var coshValue = coshValues[i];
-
-                    signals.Add(coshValue);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return coshValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating COSH indicator. RetCode: {retCode}");
             }
         }
-        public float[] Dema(List<IndicatorDataPoint> fxData, int optInTimePeriod = 30)
+        public float[] Dema(List<ITradingDataPoint<T>> fxData, int optInTimePeriod = 30)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.DemaLookback())
+            int lookback = Functions.DemaLookback();
+            
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -1127,10 +1004,11 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
 
 
             // Extract prices as floats (using Offer or Bid values)
-            var prices = fxData.Select(d => Convert.ToSingle(d.Offer ?? d.Bid ?? 0m)).ToArray().AsSpan();
+            var prices = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var demaValues = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookback;
+            
+            var demaValues = new float[NoReturned];
             var range = new Range(0, prices.Length - 1);
 
             // Call Dema function
@@ -1144,25 +1022,18 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, calculate normalized signals
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    var demaValue = demaValues[i];
-                    signals.Add(demaValue);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return demaValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating DEMA indicator. RetCode: {retCode}");
             }
         }
-        public float[] Div(List<IndicatorDataPoint> fxData, List<IndicatorDataPoint> fxData2)
+        public float[] Div(List<ITradingDataPoint<T>> fxData, List<ITradingDataPoint<T>> fxData2)
         {
-            // Validate input data lengths
-            if (fxData == null || fxData2 == null || fxData.Count < Functions.DivLookback() || fxData2.Count < Functions.DivLookback())
+            int lookback = Functions.DivLookback();
+            
+            if (fxData == null || fxData2 == null || fxData.Count < lookback || fxData2.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -1175,11 +1046,12 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
 
             // Extract prices from fxData and fxData2 (using Offer or Bid values)
-            var prices1 = fxData.Select(d => Convert.ToSingle(d.Offer ?? d.Bid ?? 0m)).ToArray().AsSpan();
-            var prices2 = fxData2.Select(d => Convert.ToSingle(d.Offer ?? d.Bid ?? 0m)).ToArray().AsSpan();
+            var prices1 = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
+            var prices2 = fxData2.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var divValues = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookback;
+            
+            var divValues = new float[NoReturned];
             var range = new Range(0, prices1.Length - 1);
 
             // Call Div function
@@ -1193,26 +1065,18 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, calculate normalized signals
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    var divValue = divValues[i];
-
-                    signals.Add(divValue);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return divValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating Div indicator. RetCode: {retCode}");
             }
         }
-        public float[] Dx(List<IndicatorDataPoint> fxData, int optInTimePeriod = 14)
+        public float[] Dx(List<ITradingDataPoint<T>> fxData, int optInTimePeriod = 14)
         {
-            // Validate input data length
-            if (fxData == null ||  fxData.Count < Functions.DxLookback(optInTimePeriod) )
+            int lookback = Functions.DxLookback(optInTimePeriod);
+            
+            if (fxData == null ||  fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -1224,8 +1088,10 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             var lowPrices = fxData.Select(d => Convert.ToSingle(d.Low)).ToArray().AsSpan();
             var closePrices = fxData.Select(d => Convert.ToSingle(d.Close)).ToArray().AsSpan();
 
-            // Prepare output array
-            var dxValues = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookback;
+
+            
+            var dxValues = new float[NoReturned];
             var range = new Range(0, highPrices.Length - 1);
 
             // Call Dx function
@@ -1241,26 +1107,19 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, calculate normalized signals
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    var dxValue = dxValues[i];
-
-                    signals.Add(dxValue);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return dxValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating DX indicator. RetCode: {retCode}");
             }
         }
-        public float[] Ema(List<IndicatorDataPoint> fxData, int optInTimePeriod = 30)
+        public float[] Ema(List<ITradingDataPoint<T>> fxData, int optInTimePeriod = 30)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.EmaLookback(optInTimePeriod))
+            int lookback = Functions.EmaLookback(optInTimePeriod);
+
+            
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -1268,10 +1127,12 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
 
             // Extract prices as floats (using Offer or Bid values)
-            var prices = fxData.Select(d => Convert.ToSingle(d.Offer ?? d.Bid ?? 0m)).ToArray().AsSpan();
+            var prices = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var emaValues = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookback;
+
+            
+            var emaValues = new float[NoReturned];
             var range = new Range(0, prices.Length - 1);
 
             // Call Ema function
@@ -1285,42 +1146,36 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, calculate normalized signals
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    var emaValue = emaValues[i];
-
-                    signals.Add(emaValue);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return emaValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating EMA indicator. RetCode: {retCode}");
             }
         }
-        public float[] Exp(List<IndicatorDataPoint> fxData)
+        public float[] Exp(List<ITradingDataPoint<T>> fxData)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.ExpLookback())
+            int lookback = Functions.ExpLookback();
+            
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
                 throw new NotEnoughDataException($"Not enough data to calculate {methodName} indicator for the chosen time period.");
             }
 
-            // Extract prices as floats (using Offer or Bid values)
-            var prices = fxData.Select(d => Convert.ToSingle(d.Offer ?? d.Bid ?? 0m)).ToArray().AsSpan();
 
-            // Prepare output array
-            var expValues = new float[fxData.Count];
-            var range = new Range(0, prices.Length - 1);
+            var PriceChanges = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault()) - Convert.ToSingle(d.Open.GetValueOrDefault())).ToArray().NormalizeToRange().AsSpan();
+
+            int NoReturned = fxData.Count() - lookback;
+
+            
+            var expValues = new float[NoReturned];
+            var range = new Range(0, PriceChanges.Length - 1);
 
             // Call Exp function
             var retCode = Functions.Exp<float>(
-                prices,
+                PriceChanges,
                 range,
                 expValues,
                 out var outputRange);
@@ -1328,36 +1183,30 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, calculate normalized signals
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    var expValue = expValues[i];
-
-                    signals.Add(expValue);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return expValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating Exp indicator. RetCode: {retCode}");
             }
         }
-        public float[] Floor(List<IndicatorDataPoint> fxData)
+        public float[] Floor(List<ITradingDataPoint<T>> fxData)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.FloorLookback())
+            int lookback = Functions.FloorLookback();
+            
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
                 throw new NotEnoughDataException($"Not enough data to calculate {methodName} indicator for the chosen time period.");
             }
             // Extract prices as floats (using Offer or Bid values)
-            var prices = fxData.Select(d => Convert.ToSingle(d.Offer ?? d.Bid ?? 0m)).ToArray().AsSpan();
+            var prices = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var floorValues = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookback;
+
+            
+            var floorValues = new float[NoReturned];
             var range = new Range(0, prices.Length - 1);
 
             // Call Floor function
@@ -1370,26 +1219,18 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, calculate normalized signals
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    var floorValue = floorValues[i];
-
-                    signals.Add(floorValue);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return floorValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating Floor indicator. RetCode: {retCode}");
             }
         }
-        public float[] HtDcPeriod(List<IndicatorDataPoint> fxData)
+        public float[] HtDcPeriod(List<ITradingDataPoint<T>> fxData)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.HtDcPeriodLookback())
+            int lookback = Functions.HtDcPeriodLookback();
+            
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -1397,10 +1238,12 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
 
             // Extract prices as floats (using Offer or Bid values)
-            var prices = fxData.Select(d => Convert.ToSingle(d.Offer ?? d.Bid ?? 0m)).ToArray().AsSpan();
+            var prices = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var htDcPeriodValues = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookback;
+
+            
+            var htDcPeriodValues = new float[NoReturned];
             var range = new Range(0, prices.Length - 1);
 
             // Call HtDcPeriod function
@@ -1413,26 +1256,19 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, calculate normalized signals
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    var htDcPeriodValue = htDcPeriodValues[i];
-
-                    signals.Add(htDcPeriodValue);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return htDcPeriodValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating HT DC Period indicator. RetCode: {retCode}");
             }
         }
-        public float[] HtDcPhase(List<IndicatorDataPoint> fxData)
+        public float[] HtDcPhase(List<ITradingDataPoint<T>> fxData)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.HtDcPhaseLookback())
+            int lookback = Functions.HtDcPhaseLookback();
+
+            
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -1440,10 +1276,12 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
 
             // Extract prices as floats (using Offer or Bid values)
-            var prices = fxData.Select(d => Convert.ToSingle(d.Offer ?? d.Bid ?? 0m)).ToArray().AsSpan();
+            var prices = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var htDcPhaseValues = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookback;
+
+            
+            var htDcPhaseValues = new float[NoReturned];
             var range = new Range(0, prices.Length - 1);
 
             // Call HtDcPhase function
@@ -1456,16 +1294,7 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, calculate normalized signals
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    var htDcPhaseValue = htDcPhaseValues[i];
-
-                    signals.Add(htDcPhaseValue);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return htDcPhaseValues.ToArray(); 
             }
             else
             {
@@ -1473,30 +1302,33 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
         }
 
-        public float[] HtPhasorInPhase(List<IndicatorDataPoint> fxData)
+        public float[] HtPhasorInPhase(List<ITradingDataPoint<T>> fxData)
         {
             return HtPhasor(fxData).InPhase;
         }
-        public float[] HtPhasorQuadrature(List<IndicatorDataPoint> fxData)
+        public float[] HtPhasorQuadrature(List<ITradingDataPoint<T>> fxData)
         {
             return HtPhasor(fxData).Quadrature;
         }
-        private (float[] InPhase, float[] Quadrature) HtPhasor(List<IndicatorDataPoint> fxData)
+        private (float[] InPhase, float[] Quadrature) HtPhasor(List<ITradingDataPoint<T>> fxData)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.HtPhasorLookback())
+            int lookback = Functions.HtPhasorLookback();
+
+            
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
-
                 throw new NotEnoughDataException($"Not enough data to calculate {methodName} indicator for the chosen time period.");
             }
 
             // Extract prices as floats (using Offer or Bid values)
-            var prices = fxData.Select(d => Convert.ToSingle(d.Offer ?? d.Bid ?? 0m)).ToArray().AsSpan();
+            var prices = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
+            int NoReturned = fxData.Count() - lookback;
 
-            // Prepare output arrays
-            var inPhaseValues = new float[fxData.Count];
-            var quadratureValues = new float[fxData.Count];
+
+            
+            var inPhaseValues = new float[NoReturned];
+            var quadratureValues = new float[NoReturned];
             var range = new Range(0, prices.Length - 1);
 
             // Call HtPhasor function
@@ -1510,16 +1342,7 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, calculate normalized signals
             if (retCode == Core.RetCode.Success)
             {
-                var inPhaseSignals = new List<float>();
-                var quadratureSignals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    inPhaseSignals.Add(inPhaseValues[i]);
-                    quadratureSignals.Add(quadratureValues[i]);
-                }
-
-                return (inPhaseSignals.ToArray(), quadratureSignals.ToArray()); // Return the arrays of signals
+                return (inPhaseValues.ToArray(), quadratureValues.ToArray()); // Return the arrays of signals
             }
             else
             {
@@ -1527,18 +1350,20 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
         }
 
-        public float[] HtSineSine(List<IndicatorDataPoint> fxData)
+        public float[] HtSineSine(List<ITradingDataPoint<T>> fxData)
         {
             return HtSine(fxData).Sine;
         }
-        public float[] HtSineLeadSine(List<IndicatorDataPoint> fxData)
+        public float[] HtSineLeadSine(List<ITradingDataPoint<T>> fxData)
         {
             return HtSine(fxData).LeadSine;
         }
-        public (float[] Sine, float[] LeadSine) HtSine(List<IndicatorDataPoint> fxData)
+        public (float[] Sine, float[] LeadSine) HtSine(List<ITradingDataPoint<T>> fxData)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.HtSineLookback())
+            int lookback = Functions.HtSineLookback();
+
+            
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -1546,11 +1371,12 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
 
             // Extract prices as floats (using Offer or Bid values)
-            var prices = fxData.Select(d => Convert.ToSingle(d.Offer ?? d.Bid ?? 0m)).ToArray().AsSpan();
+            var prices = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output arrays
-            var sineValues = new float[fxData.Count];
-            var leadSineValues = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookback;
+
+            var sineValues = new float[NoReturned];
+            var leadSineValues = new float[NoReturned];
             var range = new Range(0, prices.Length - 1);
 
             // Call HtSine function
@@ -1564,16 +1390,7 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, calculate normalized signals
             if (retCode == Core.RetCode.Success)
             {
-                var sineSignals = new List<float>();
-                var leadSineSignals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    sineSignals.Add(sineValues[i]);
-                    leadSineSignals.Add(leadSineValues[i]);
-                }
-
-                return (sineSignals.ToArray(), leadSineSignals.ToArray()); // Return the arrays of signals
+                return (sineValues.ToArray(), leadSineValues.ToArray()); // Return the arrays of signals
             }
             else
             {
@@ -1581,10 +1398,11 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
         }
 
-        public float[] HtTrendline(List<IndicatorDataPoint> fxData)
+        public float[] HtTrendline(List<ITradingDataPoint<T>> fxData)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.HtTrendlineLookback())
+            int lookback = Functions.HtTrendlineLookback();
+            
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -1592,10 +1410,12 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
 
             // Extract prices as floats (using Offer or Bid values)
-            var prices = fxData.Select(d => Convert.ToSingle(d.Offer ?? d.Bid ?? 0m)).ToArray().AsSpan();
+            var prices = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var trendlineValues = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookback;
+
+            
+            var trendlineValues = new float[NoReturned];
             var range = new Range(0, prices.Length - 1);
 
             // Call HtTrendline function
@@ -1608,24 +1428,19 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, calculate normalized signals
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    signals.Add(trendlineValues[i]);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return trendlineValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating HT Trendline indicator. RetCode: {retCode}");
             }
         }
-        public float[] HtTrendMode(List<IndicatorDataPoint> fxData)
+        public float[] HtTrendMode(List<ITradingDataPoint<T>> fxData)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.HtTrendModeLookback())
+            int lookback = Functions.HtTrendModeLookback();
+
+            
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -1633,10 +1448,13 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
 
             // Extract prices as floats (using Offer or Bid values)
-            var prices = fxData.Select(d => Convert.ToSingle(d.Offer ?? d.Bid ?? 0m)).ToArray();
+            var prices = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray();
 
-            // Prepare output array
-            var trendModeValues = new int[fxData.Count];
+            int NoReturned = fxData.Count() - lookback;
+
+
+            
+            var trendModeValues = new int[NoReturned];
             var inputRange = new Range(0, prices.Length-1); // Entire range of input prices
 
             // Call HtTrendMode function
@@ -1651,11 +1469,7 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             if (retCode == Core.RetCode.Success)
             {
                 // Only take the valid range of results from the output
-                return trendModeValues
-                    .Skip(outputRange.Start.Value)
-                    .Take(outputRange.End.Value - outputRange.Start.Value)
-                    .Select(v => (float)v) // Convert int to float for the return type
-                    .ToArray();
+                return trendModeValues.Select(r=>(float)r).ToArray();
             }
             else
             {
@@ -1663,10 +1477,11 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
         }
 
-        public float[] Kama(List<IndicatorDataPoint> fxData, int optInTimePeriod = 30)
+        public float[] Kama(List<ITradingDataPoint<T>> fxData, int optInTimePeriod = 30)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.KamaLookback(optInTimePeriod))
+            int lookback = Functions.KamaLookback(optInTimePeriod);
+            
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -1674,10 +1489,12 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
 
             // Extract prices as floats (using Offer or Bid values)
-            var prices = fxData.Select(d => Convert.ToSingle(d.Offer ?? d.Bid ?? 0m)).ToArray().AsSpan();
+            var prices = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var kamaValues = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookback;
+
+            
+            var kamaValues = new float[NoReturned];
             var range = new Range(0, prices.Length - 1);
 
             // Call Kama function
@@ -1691,24 +1508,19 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, calculate normalized signals
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    signals.Add(kamaValues[i]);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return kamaValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating KAMA indicator. RetCode: {retCode}");
             }
         }
-        public float[] LinearReg(List<IndicatorDataPoint> fxData, int optInTimePeriod = 14)
+        public float[] LinearReg(List<ITradingDataPoint<T>> fxData, int optInTimePeriod = 14)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.LinearRegLookback(optInTimePeriod))
+
+            int lookback = Functions.LinearRegLookback(optInTimePeriod);
+            
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -1716,10 +1528,11 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
 
             // Extract prices as floats (using Offer or Bid values)
-            var prices = fxData.Select(d => Convert.ToSingle(d.Offer ?? d.Bid ?? 0m)).ToArray().AsSpan();
+            var prices = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var linearRegValues = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookback;
+            
+            var linearRegValues = new float[NoReturned];
             var range = new Range(0, prices.Length - 1);
 
             // Call LinearReg function
@@ -1733,24 +1546,19 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, calculate normalized signals
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    signals.Add(linearRegValues[i]);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return linearRegValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating Linear Regression indicator. RetCode: {retCode}");
             }
         }
-        public float[] LinearRegAngle(List<IndicatorDataPoint> fxData, int optInTimePeriod = 14)
+        public float[] LinearRegAngle(List<ITradingDataPoint<T>> fxData, int optInTimePeriod = 14)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.LinearRegAngleLookback(optInTimePeriod))
+            int lookback = Functions.LinearRegAngleLookback(optInTimePeriod);
+
+            
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -1758,10 +1566,12 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
 
             // Extract prices as floats (using Offer or Bid values)
-            var prices = fxData.Select(d => Convert.ToSingle(d.Offer ?? d.Bid ?? 0m)).ToArray().AsSpan();
+            var prices = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var linearRegAngleValues = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookback;
+
+            
+            var linearRegAngleValues = new float[NoReturned];
             var range = new Range(0, prices.Length - 1);
 
             // Call LinearRegAngle function
@@ -1775,24 +1585,18 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, calculate normalized signals
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    signals.Add(linearRegAngleValues[i]);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return linearRegAngleValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating Linear Regression Angle indicator. RetCode: {retCode}");
             }
         }
-        public float[] LinearRegIntercept(List<IndicatorDataPoint> fxData, int optInTimePeriod = 14)
+        public float[] LinearRegIntercept(List<ITradingDataPoint<T>> fxData, int optInTimePeriod = 14)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.LinearRegInterceptLookback(optInTimePeriod))
+            int lookback = Functions.LinearRegInterceptLookback(optInTimePeriod);
+            
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -1800,11 +1604,12 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
 
             // Extract prices as floats (using Offer or Bid values)
-            var prices = fxData.Select(d => Convert.ToSingle(d.Offer ?? d.Bid ?? 0m)).ToArray().AsSpan();
+            var prices = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var linearRegInterceptValues = new float[fxData.Count];
-            var range = new Range(0, prices.Length-1);
+            int NoReturned = fxData.Count() - lookback;
+            
+            var linearRegInterceptValues = new float[NoReturned];
+            var range = new Range(0, prices.Length - 1);
 
             // Call LinearRegIntercept function
             var retCode = Functions.LinearRegIntercept<float>(
@@ -1817,24 +1622,18 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, calculate normalized signals
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    signals.Add(linearRegInterceptValues[i]);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return linearRegInterceptValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating Linear Regression Intercept indicator. RetCode: {retCode}");
             }
         }
-        public float[] LinearRegSlope(List<IndicatorDataPoint> fxData, int optInTimePeriod = 14)
+        public float[] LinearRegSlope(List<ITradingDataPoint<T>> fxData, int optInTimePeriod = 14)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.LinearRegSlopeLookback(optInTimePeriod))
+            int lookback = Functions.LinearRegSlopeLookback(optInTimePeriod);
+            
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -1842,10 +1641,11 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
 
             // Extract prices as floats (using Offer or Bid values)
-            var prices = fxData.Select(d => Convert.ToSingle(d.Offer ?? d.Bid ?? 0m)).ToArray().AsSpan();
+            var prices = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var linearRegSlopeValues = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookback;
+            
+            var linearRegSlopeValues = new float[NoReturned];
             var range = new Range(0, prices.Length-1);
 
             // Call LinearRegSlope function
@@ -1859,24 +1659,18 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, calculate normalized signals
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    signals.Add(linearRegSlopeValues[i]);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return linearRegSlopeValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating Linear Regression Slope indicator. RetCode: {retCode}");
             }
         }
-        public float[] Ln(List<IndicatorDataPoint> fxData)
+        public float[] Ln(List<ITradingDataPoint<T>> fxData)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.LnLookback())
+            int lookback = Functions.LnLookback();
+            
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -1884,11 +1678,13 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
 
             // Extract prices as floats (using Offer or Bid values)
-            var prices = fxData.Select(d => Convert.ToSingle(d.Offer ?? d.Bid ?? 0m)).ToArray().AsSpan();
+            var prices = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var lnValues = new float[fxData.Count];
-            var range = new Range(0, prices.Length-1);
+            int NoReturned = fxData.Count() - lookback;
+
+            
+            var lnValues = new float[NoReturned];
+            var range = new Range(0, prices.Length -1);
 
             // Call Ln function
             var retCode = Functions.Ln<float>(
@@ -1900,24 +1696,18 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, calculate normalized signals
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    signals.Add(lnValues[i]);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return lnValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating Ln indicator. RetCode: {retCode}");
             }
         }
-        public float[] Log10(List<IndicatorDataPoint> fxData)
+        public float[] Log10(List<ITradingDataPoint<T>> fxData)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.Log10Lookback())
+            int lookback = Functions.Log10Lookback();
+            
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -1925,10 +1715,12 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
 
             // Extract prices as floats (using Offer or Bid values)
-            var prices = fxData.Select(d => Convert.ToSingle(d.Offer ?? d.Bid ?? 0m)).ToArray().AsSpan();
+            var prices = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var log10Values = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookback;
+
+            
+            var log10Values = new float[NoReturned];
             var range = new Range(0, prices.Length-1);
 
             // Call Log10 function
@@ -1941,24 +1733,18 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, calculate normalized signals
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    signals.Add(log10Values[i]);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return log10Values.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating Log10 indicator. RetCode: {retCode}");
             }
         }
-        public float[] Ma(List<IndicatorDataPoint> fxData, int optInTimePeriod = 30, Core.MAType optInMAType = Core.MAType.Sma)
+        public float[] Ma(List<ITradingDataPoint<T>> fxData, int optInTimePeriod = 30, Core.MAType optInMAType = Core.MAType.Sma)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.MaLookback())
+            int lookback = Functions.MaLookback();
+            
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -1967,10 +1753,11 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
 
 
             // Extract prices as floats (using Offer or Bid values)
-            var prices = fxData.Select(d => Convert.ToSingle(d.Offer ?? d.Bid ?? 0m)).ToArray().AsSpan();
+            var prices = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var maValues = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookback;
+            
+            var maValues = new float[NoReturned];
             var range = new Range(0, prices.Length-1);
 
             // Call MA function
@@ -1985,14 +1772,7 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, calculate normalized signals
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    signals.Add(maValues[i]);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return maValues.ToArray(); 
             }
             else
             {
@@ -2000,22 +1780,23 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
         }
 
-        public float[] MacdMACD(List<IndicatorDataPoint> fxData, int optInFastPeriod = 12, int optInSlowPeriod = 26, int optInSignalPeriod = 9)
+        public float[] MacdMACD(List<ITradingDataPoint<T>> fxData, int optInFastPeriod = 12, int optInSlowPeriod = 26, int optInSignalPeriod = 9)
         {
             return Macd(fxData, optInFastPeriod, optInSlowPeriod, optInSignalPeriod).MACD;
         }
-        public float[] MacdSignal(List<IndicatorDataPoint> fxData, int optInFastPeriod = 12, int optInSlowPeriod = 26, int optInSignalPeriod = 9)
+        public float[] MacdSignal(List<ITradingDataPoint<T>> fxData, int optInFastPeriod = 12, int optInSlowPeriod = 26, int optInSignalPeriod = 9)
         {
             return Macd(fxData, optInFastPeriod, optInSlowPeriod, optInSignalPeriod).Signal;
         }
-        public float[] MacdHistogram(List<IndicatorDataPoint> fxData, int optInFastPeriod = 12, int optInSlowPeriod = 26, int optInSignalPeriod = 9)
+        public float[] MacdHistogram(List<ITradingDataPoint<T>> fxData, int optInFastPeriod = 12, int optInSlowPeriod = 26, int optInSignalPeriod = 9)
         {
             return Macd(fxData, optInFastPeriod, optInSlowPeriod, optInSignalPeriod).Histogram;
         }
-        private (float[] MACD, float[] Signal, float[] Histogram) Macd(List<IndicatorDataPoint> fxData, int optInFastPeriod = 12, int optInSlowPeriod = 26, int optInSignalPeriod = 9)
+        private (float[] MACD, float[] Signal, float[] Histogram) Macd(List<ITradingDataPoint<T>> fxData, int optInFastPeriod = 12, int optInSlowPeriod = 26, int optInSignalPeriod = 9)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.MacdLookback(optInFastPeriod, optInSlowPeriod, optInSignalPeriod))
+            int lookback = Functions.MacdLookback(optInFastPeriod, optInSlowPeriod, optInSignalPeriod);
+            
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -2023,12 +1804,13 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
 
             // Extract prices as floats (using Offer or Bid values)
-            var prices = fxData.Select(d => Convert.ToSingle(d.Offer ?? d.Bid ?? 0m)).ToArray().AsSpan();
+            var prices = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output arrays
-            var macdValues = new float[fxData.Count];
-            var signalValues = new float[fxData.Count];
-            var histogramValues = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookback;
+            
+            var macdValues = new float[NoReturned];
+            var signalValues = new float[NoReturned];
+            var histogramValues = new float[NoReturned];
             var range = new Range(0, prices.Length-1);
 
             // Call MACD function
@@ -2046,18 +1828,7 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, calculate normalized signals
             if (retCode == Core.RetCode.Success)
             {
-                var macdSignals = new List<float>();
-                var signalSignals = new List<float>();
-                var histogramSignals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    macdSignals.Add(macdValues[i]);
-                    signalSignals.Add(signalValues[i]);
-                    histogramSignals.Add(signalValues[i]);
-                }
-
-                return (macdSignals.ToArray(), signalSignals.ToArray(), histogramSignals.ToArray());
+                return (macdValues.ToArray(), signalValues.ToArray(), histogramValues.ToArray());
             }
             else
             {
@@ -2065,26 +1836,26 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
         }
 
-        public float[] MacdExtMacdSignalss(List<IndicatorDataPoint> fxData,
+        public float[] MacdExtMacdSignalss(List<ITradingDataPoint<T>> fxData,
             int optInFastPeriod = 12, Core.MAType optInFastMAType = Core.MAType.Sma,
             int optInSlowPeriod = 26, Core.MAType optInSlowMAType = Core.MAType.Sma,
             int optInSignalPeriod = 9, Core.MAType optInSignalMAType = Core.MAType.Sma)
         {
             return MacdExt(fxData, optInFastPeriod, optInFastMAType, optInSlowPeriod, optInSlowMAType, optInSignalPeriod).MacdSignals;
         }
-        public float[] MacdExtMacdHistSignals(List<IndicatorDataPoint> fxData,
+        public float[] MacdExtMacdHistSignals(List<ITradingDataPoint<T>> fxData,
             int optInFastPeriod = 12, Core.MAType optInFastMAType = Core.MAType.Sma,
             int optInSlowPeriod = 26, Core.MAType optInSlowMAType = Core.MAType.Sma,
             int optInSignalPeriod = 9, Core.MAType optInSignalMAType = Core.MAType.Sma)
         {
             return MacdExt(fxData, optInFastPeriod, optInFastMAType, optInSlowPeriod, optInSlowMAType, optInSignalPeriod).MacdHistSignals;
         }
-        private (float[] MacdSignals, float[] MacdHistSignals) MacdExt(List<IndicatorDataPoint> fxData,
+        private (float[] MacdSignals, float[] MacdHistSignals) MacdExt(List<ITradingDataPoint<T>> fxData,
             int optInFastPeriod = 12, Core.MAType optInFastMAType = Core.MAType.Sma,
             int optInSlowPeriod = 26, Core.MAType optInSlowMAType = Core.MAType.Sma,
             int optInSignalPeriod = 9, Core.MAType optInSignalMAType = Core.MAType.Sma)
         {
-            // Validate input data length
+            
             if (fxData == null || fxData.Count < Functions.MacdExtLookback(optInFastPeriod, optInFastMAType, optInSlowPeriod, optInSlowMAType,  optInSignalPeriod, optInSignalMAType))
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
@@ -2093,9 +1864,9 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
 
             // Extract prices as floats (using Offer or Bid values)
-            var prices = fxData.Select(d => Convert.ToSingle(d.Offer ?? d.Bid ?? 0m)).ToArray().AsSpan();
+            var prices = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output arrays
+            
             var macdValues = new float[fxData.Count];
             var macdSignalValues = new float[fxData.Count];
             var macdHistValues = new float[fxData.Count];
@@ -2138,18 +1909,23 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
         }
 
 
-        public float[] MacdFixMacdFixSignals(List<IndicatorDataPoint> fxData, int optInSignalPeriod = 9)
+        public float[] Macd(List<ITradingDataPoint<T>> fxData, int optInSignalPeriod = 9)
+        {
+            return MacdFix(fxData, optInSignalPeriod).Macd;
+        }
+        public float[] MacdFixMacdFixSignals(List<ITradingDataPoint<T>> fxData, int optInSignalPeriod = 9)
         {
             return MacdFix(fxData, optInSignalPeriod).MacdFixSignals;
         }
-        public float[] MacdFixMacdFixHistSignals(List<IndicatorDataPoint> fxData, int optInSignalPeriod = 9)
+        public float[] MacdFixMacdFixHistSignals(List<ITradingDataPoint<T>> fxData, int optInSignalPeriod = 9)
         {
             return MacdFix(fxData, optInSignalPeriod).MacdFixHistSignals;
         }
-        private (float[] MacdFixSignals, float[] MacdFixHistSignals) MacdFix(List<IndicatorDataPoint> fxData, int optInSignalPeriod = 9)
+        private (float[] Macd, float[] MacdFixSignals, float[] MacdFixHistSignals) MacdFix(List<ITradingDataPoint<T>> fxData, int optInSignalPeriod = 9)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.MacdFixLookback(optInSignalPeriod))
+            int lookback = Functions.MacdFixLookback(optInSignalPeriod);
+
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -2157,12 +1933,13 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
 
             // Extract prices as floats (using Offer or Bid values)
-            var prices = fxData.Select(d => Convert.ToSingle(d.Offer ?? d.Bid ?? 0m)).ToArray().AsSpan();
+            var prices = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output arrays
-            var macdValues = new float[fxData.Count];
-            var macdSignalValues = new float[fxData.Count];
-            var macdHistValues = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookback;
+            
+            var macdValues = new float[NoReturned];
+            var macdSignalValues = new float[NoReturned];
+            var macdHistValues = new float[NoReturned];
             var range = new Range(0, prices.Length-1);
 
             // Call MACD Fix function
@@ -2178,17 +1955,7 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, calculate normalized signals
             if (retCode == Core.RetCode.Success)
             {
-                var macdFixSignals = new List<float>();
-                var macdFixHistSignals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    macdFixSignals.Add(macdValues[i]);
-
-                    macdFixHistSignals.Add(macdHistValues[i]);
-                }
-
-                return (macdFixSignals.ToArray(), macdFixHistSignals.ToArray()); // Return arrays of MACD and Histogram signals
+                return (macdValues.ToArray(), macdSignalValues.ToArray(), macdHistValues.ToArray()); // Return arrays of MACD and Histogram signals
             }
             else
             {
@@ -2197,18 +1964,19 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
         }
 
 
-        public float[] MamaMamaSignals(List<IndicatorDataPoint> fxData, double optInFastLimit = 0.5, double optInSlowLimit = 0.05)
+        public float[] MamaMamaSignals(List<ITradingDataPoint<T>> fxData, double optInFastLimit = 0.5, double optInSlowLimit = 0.05)
         {
             return Mama(fxData, optInFastLimit, optInSlowLimit).MamaSignals;
         }
-        public float[] MamaFamaSignals(List<IndicatorDataPoint> fxData, double optInFastLimit = 0.5, double optInSlowLimit = 0.05)
+        public float[] MamaFamaSignals(List<ITradingDataPoint<T>> fxData, double optInFastLimit = 0.5, double optInSlowLimit = 0.05)
         {
             return Mama(fxData, optInFastLimit, optInSlowLimit).FamaSignals;
         }
-        private (float[] MamaSignals, float[] FamaSignals) Mama(List<IndicatorDataPoint> fxData, double optInFastLimit = 0.5, double optInSlowLimit = 0.05)
+        private (float[] MamaSignals, float[] FamaSignals) Mama(List<ITradingDataPoint<T>> fxData, double optInFastLimit = 0.5, double optInSlowLimit = 0.05)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.MamaLookback())
+            int lookback = Functions.MamaLookback();
+            
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -2217,11 +1985,13 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
 
 
             // Extract prices as floats (using Offer or Bid values)
-            var prices = fxData.Select(d => Convert.ToSingle(d.Offer ?? d.Bid ?? 0m)).ToArray().AsSpan();
+            var prices = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output arrays
-            var mamaValues = new float[fxData.Count];
-            var famaValues = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookback;
+
+            
+            var mamaValues = new float[NoReturned];
+            var famaValues = new float[NoReturned];
             var range = new Range(0, prices.Length-1);
 
             // Call MAMA function
@@ -2237,17 +2007,7 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, calculate normalized signals
             if (retCode == Core.RetCode.Success)
             {
-                var mamaSignals = new List<float>();
-                var famaSignals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    mamaSignals.Add(mamaValues[i]);
-
-                    famaSignals.Add(famaValues[i]);
-                }
-
-                return (mamaSignals.ToArray(), famaSignals.ToArray()); // Return arrays of MAMA and FAMA signals
+                return (mamaValues.ToArray(), famaValues.ToArray()); // Return arrays of MAMA and FAMA signals
             }
             else
             {
@@ -2255,20 +2015,22 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
         }
 
-        public float[] Max(List<IndicatorDataPoint> fxData, int optInTimePeriod = 30)
+        public float[] Max(List<ITradingDataPoint<T>> fxData, int optInTimePeriod = 30)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.MaxLookback())
+            int lookback = Functions.MaxLookback();
+            
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
                 throw new NotEnoughDataException($"Not enough data to calculate {methodName} indicator for the chosen time period {optInTimePeriod}.");
             }
             // Extract prices as floats (using Offer or Bid values)
-            var prices = fxData.Select(d => Convert.ToSingle(d.Offer ?? d.Bid ?? 0m)).ToArray().AsSpan();
+            var prices = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var maxValues = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookback;
+            
+            var maxValues = new float[NoReturned];
             var range = new Range(0, prices.Length-1);
 
             // Call Max function
@@ -2282,24 +2044,18 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, calculate normalized signals
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    signals.Add(maxValues[i]);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return maxValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating Max indicator. RetCode: {retCode}");
             }
         }
-        public float[] MaxIndex(List<IndicatorDataPoint> fxData, int optInTimePeriod = 30)
+        public float[] MaxIndex(List<ITradingDataPoint<T>> fxData, int optInTimePeriod = 30)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.MaxIndexLookback())
+            int lookback = Functions.MaxIndexLookback(optInTimePeriod);
+            
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -2307,10 +2063,11 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
 
             // Extract prices as floats (using Offer or Bid values)
-            var prices = fxData.Select(d => Convert.ToSingle(d.Offer ?? d.Bid ?? 0m)).ToArray().AsSpan();
+            var prices = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var maxIndices = new int[fxData.Count];
+            int NoReturned = fxData.Count() - lookback;
+            
+            var maxIndices = new int[NoReturned];
             var range = new Range(0, prices.Length-1);
 
             // Call MaxIndex function
@@ -2324,25 +2081,18 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, extract and return indices
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    // Store the index of the maximum value
-                    signals.Add(maxIndices[i]);
-                }
-
-                return signals.ToArray(); // Return the array of indices
+                return maxIndices.Select(r=>(float)r).ToArray(); // Return the array of indices
             }
             else
             {
                 throw new Exception($"Error calculating MaxIndex indicator. RetCode: {retCode}");
             }
         }
-        public float[] MedPrice(List<IndicatorDataPoint> fxData)
+        public float[] MedPrice(List<ITradingDataPoint<T>> fxData)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.MedPriceLookback())
+            int lookback = Functions.MedPriceLookback();
+            
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -2350,11 +2100,12 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
 
             // Extract High and Low prices as floats
-            var highs = fxData.Select(d => Convert.ToSingle(d.High ?? 0m)).ToArray().AsSpan();
-            var lows = fxData.Select(d => Convert.ToSingle(d.Low ?? 0m)).ToArray().AsSpan();
+            var highs = fxData.Select(d => Convert.ToSingle(d.High.GetValueOrDefault())).ToArray().AsSpan();
+            var lows = fxData.Select(d => Convert.ToSingle(d.Low.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var medPrices = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookback;
+            
+            var medPrices = new float[NoReturned];
             var range = new Range(0, highs.Length - 1);
 
             // Call MedPrice function
@@ -2368,14 +2119,7 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, normalize and return MedPrice values
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    signals.Add(medPrices[i]);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return medPrices.ToArray(); 
             }
             else
             {
@@ -2383,10 +2127,11 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
         }
 
-        public float[] MidPoint(List<IndicatorDataPoint> fxData, int optInTimePeriod = 14)
+        public float[] MidPoint(List<ITradingDataPoint<T>> fxData, int optInTimePeriod = 14)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.MidPointLookback(optInTimePeriod))
+            int lookback = Functions.MidPointLookback(optInTimePeriod);
+            
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -2394,10 +2139,11 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
 
             // Extract prices as floats (using Close prices or any other relevant value)
-            var prices = fxData.Select(d => Convert.ToSingle(d.Close ?? 0m)).ToArray().AsSpan();
+            var prices = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var midPoints = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookback;
+            
+            var midPoints = new float[NoReturned];
             var range = new Range(0, prices.Length-1);
 
             // Call MidPoint function
@@ -2411,35 +2157,30 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, normalize and return MidPoint values
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    signals.Add(midPoints[i]);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return midPoints.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating MidPoint indicator. RetCode: {retCode}");
             }
         }
-        public float[] MidPrice(List<IndicatorDataPoint> fxData, int optInTimePeriod = 14)
+        public float[] MidPrice(List<ITradingDataPoint<T>> fxData, int optInTimePeriod = 14)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.MidPriceLookback(optInTimePeriod))
+            int lookback = Functions.MidPriceLookback(optInTimePeriod);
+            
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
                 throw new NotEnoughDataException($"Not enough data to calculate {methodName} indicator for the chosen time period {optInTimePeriod}.");
             }
             // Extract High and Low prices as floats
-            var highs = fxData.Select(d => Convert.ToSingle(d.High ?? 0m)).ToArray().AsSpan();
-            var lows = fxData.Select(d => Convert.ToSingle(d.Low ?? 0m)).ToArray().AsSpan();
+            var highs = fxData.Select(d => Convert.ToSingle(d.High.GetValueOrDefault())).ToArray().AsSpan();
+            var lows = fxData.Select(d => Convert.ToSingle(d.Low.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var midPrices = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookback;
+            
+            var midPrices = new float[NoReturned];
             var range = new Range(0, highs.Length - 1);
 
             // Call MidPrice function
@@ -2454,36 +2195,32 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, normalize and return MidPrice values
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    signals.Add(midPrices[i]);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return midPrices.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating MidPrice indicator. RetCode: {retCode}");
             }
         }
-        public float[] Min(List<IndicatorDataPoint> fxData, int optInTimePeriod = 30)
-        {
-            // Validate input data length
+        public float[] Min(List<ITradingDataPoint<T>> fxData, int optInTimePeriod = 30)
 
-            if (fxData == null || fxData.Count < Functions.MinLookback(optInTimePeriod))
+        {
+            int lookback = Functions.MinLookback(optInTimePeriod);
+
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
                 throw new NotEnoughDataException($"Not enough data to calculate {methodName} indicator for the chosen time period {optInTimePeriod}.");
             }
 
-            // Extract prices as floats (using Close prices or any other relevant value)
-            var prices = fxData.Select(d => Convert.ToSingle(d.Close ?? 0m)).ToArray().AsSpan();
 
-            // Prepare output array
-            var minValues = new float[fxData.Count];
+            var prices = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
+
+            int NoReturned = fxData.Count() - lookback;
+
+            
+            var minValues = new float[NoReturned];
             var range = new Range(0, prices.Length-1);
 
             // Call Min function
@@ -2497,24 +2234,18 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, normalize and return Min values
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    signals.Add(minValues[i]);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return minValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating Min indicator. RetCode: {retCode}");
             }
         }
-        public float[] MinIndex(List<IndicatorDataPoint> fxData, int optInTimePeriod = 30)
+        public float[] MinIndex(List<ITradingDataPoint<T>> fxData, int optInTimePeriod = 30)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.MinIndexLookback(optInTimePeriod))
+            int lookback = Functions.MinIndexLookback(optInTimePeriod);
+            
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -2522,10 +2253,11 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
 
             // Extract prices as floats (using Close prices or any other relevant value)
-            var prices = fxData.Select(d => Convert.ToSingle(d.Close ?? 0m)).ToArray().AsSpan();
+            var prices = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var minIndices = new int[fxData.Count];
+            int NoReturned = fxData.Count() - lookback;
+            
+            var minIndices = new int[NoReturned];
             var range = new Range(0, prices.Length-1);
 
             // Call MinIndex function
@@ -2539,25 +2271,18 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, extract and return indices
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    // Store the index of the minimum value
-                    signals.Add(minIndices[i]);
-                }
-
-                return signals.ToArray(); // Return the array of indices
+                return minIndices.Select(r=>(float)r).ToArray(); // Return the array of indices
             }
             else
             {
                 throw new Exception($"Error calculating MinIndex indicator. RetCode: {retCode}");
             }
         }
-        public float[] MinMaxIndex(List<IndicatorDataPoint> fxData, int optInTimePeriod = 30)
+        public float[] MinMaxIndex(List<ITradingDataPoint<T>> fxData, int optInTimePeriod = 30)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.MinMaxIndexLookback(optInTimePeriod))
+            int lookback = Functions.MinMaxIndexLookback(optInTimePeriod);
+            
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -2565,11 +2290,12 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
 
             // Extract prices as floats (using Close prices or any other relevant value)
-            var prices = fxData.Select(d => Convert.ToSingle(d.Close ?? 0m)).ToArray().AsSpan();
+            var prices = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output arrays for min and max indices
-            var minIndices = new float[fxData.Count];
-            var maxIndices = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookback;
+
+            var minIndices = new float[NoReturned];
+            var maxIndices = new float[NoReturned];
             var range = new Range(0, prices.Length-1);
 
             // Call MinMaxIndex function
@@ -2586,22 +2312,25 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             {
                 var signals = new List<float>();
 
+                int x = 0;
                 for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
                 {
-                    signals.Add(maxIndices[i] - minIndices[i]);
+                    signals.Add(maxIndices[x] - minIndices[x]);
+                    x++;
                 }
 
-                return signals.ToArray(); // Return the array of signals
+                return signals.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating MinMaxIndex indicator. RetCode: {retCode}");
             }
         }
-        public float[] MinusDI(List<IndicatorDataPoint> fxData, int optInTimePeriod = 14)
+        public float[] MinusDI(List<ITradingDataPoint<T>> fxData, int optInTimePeriod = 14)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.MinusDILookback(optInTimePeriod))
+            int lookback = Functions.MinusDILookback(optInTimePeriod);
+            
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -2609,12 +2338,13 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
 
             // Extract High, Low, and Close prices as floats
-            var highs = fxData.Select(d => Convert.ToSingle(d.High ?? 0m)).ToArray().AsSpan();
-            var lows = fxData.Select(d => Convert.ToSingle(d.Low ?? 0m)).ToArray().AsSpan();
-            var closes = fxData.Select(d => Convert.ToSingle(d.Close ?? 0m)).ToArray().AsSpan();
+            var highs = fxData.Select(d => Convert.ToSingle(d.High.GetValueOrDefault())).ToArray().AsSpan();
+            var lows = fxData.Select(d => Convert.ToSingle(d.Low.GetValueOrDefault())).ToArray().AsSpan();
+            var closes = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var minusDIValues = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookback;
+            
+            var minusDIValues = new float[NoReturned];
             var range = new Range(0, highs.Length-1);
 
             // Call MinusDI function
@@ -2630,24 +2360,18 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, normalize and return MinusDI values
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    signals.Add(minusDIValues[i]);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return minusDIValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating MinusDI indicator. RetCode: {retCode}");
             }
         }
-        public float[] MinusDM(List<IndicatorDataPoint> fxData, int optInTimePeriod = 14)
+        public float[] MinusDM(List<ITradingDataPoint<T>> fxData, int optInTimePeriod = 14)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.MinusDMLookback(optInTimePeriod))
+            int lookback = Functions.MinusDMLookback(optInTimePeriod);
+            
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -2655,11 +2379,12 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
 
             // Extract High and Low prices as floats
-            var highs = fxData.Select(d => Convert.ToSingle(d.High ?? 0m)).ToArray().AsSpan();
-            var lows = fxData.Select(d => Convert.ToSingle(d.Low ?? 0m)).ToArray().AsSpan();
+            var highs = fxData.Select(d => Convert.ToSingle(d.High.GetValueOrDefault())).ToArray().AsSpan();
+            var lows = fxData.Select(d => Convert.ToSingle(d.Low.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var minusDMValues = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookback;
+            
+            var minusDMValues = new float[NoReturned];
             var range = new Range(0, highs.Length -1);
 
             // Call MinusDM function
@@ -2674,24 +2399,18 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, normalize and return MinusDM values
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    signals.Add(minusDMValues[i]);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return minusDMValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating MinusDM indicator. RetCode: {retCode}");
             }
         }
-        public float[] Mom(List<IndicatorDataPoint> fxData, int optInTimePeriod = 10)
+        public float[] Mom(List<ITradingDataPoint<T>> fxData, int optInTimePeriod = 10)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.MomLookback(optInTimePeriod))
+            int lookback = Functions.MomLookback(optInTimePeriod);
+            
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -2699,10 +2418,11 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
 
             // Extract prices as floats (using Close prices or any other relevant value)
-            var prices = fxData.Select(d => Convert.ToSingle(d.Close ?? 0m)).ToArray().AsSpan();
+            var prices = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var momValues = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookback;
+            
+            var momValues = new float[NoReturned];
             var range = new Range(0, prices.Length-1);
 
             // Call Mom function
@@ -2716,24 +2436,18 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, normalize and return Mom values
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    signals.Add(momValues[i]);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return momValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating Mom indicator. RetCode: {retCode}");
             }
         }
-        public float[] Mult(List<IndicatorDataPoint> fxData1, List<IndicatorDataPoint> fxData2)
+        public float[] Mult(List<ITradingDataPoint<T>> fxData1, List<ITradingDataPoint<T>> fxData2)
         {
-            // Validate input data lengths
-            if (fxData1 == null || fxData1.Count < Functions.MultLookback())
+            int lookback = Functions.MultLookback();
+            
+            if (fxData1 == null || fxData1.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -2745,11 +2459,12 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
 
             // Extract values as floats (using Close prices or any other relevant value)
-            var values1 = fxData1.Select(d => Convert.ToSingle(d.Close ?? 0m)).ToArray().AsSpan();
-            var values2 = fxData2.Select(d => Convert.ToSingle(d.Close ?? 0m)).ToArray().AsSpan();
+            var values1 = fxData1.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
+            var values2 = fxData2.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var multValues = new float[fxData1.Count];
+            int NoReturned = fxData1.Count() - lookback;
+            
+            var multValues = new float[NoReturned];
             var range = new Range(0, values1.Length - 1);
 
             // Call Mult function
@@ -2763,24 +2478,18 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, normalize and return Mult values
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    signals.Add(multValues[i]);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return multValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating Mult indicator. RetCode: {retCode}");
             }
         }
-        public float[] Natr(List<IndicatorDataPoint> fxData, int optInTimePeriod = 14)
+        public float[] Natr(List<ITradingDataPoint<T>> fxData, int optInTimePeriod = 14)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.NatrLookback(optInTimePeriod))
+            int lookback = Functions.NatrLookback(optInTimePeriod);
+            
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -2788,12 +2497,13 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
 
             // Extract High, Low, and Close prices as floats
-            var highs = fxData.Select(d => Convert.ToSingle(d.High ?? 0m)).ToArray().AsSpan();
-            var lows = fxData.Select(d => Convert.ToSingle(d.Low ?? 0m)).ToArray().AsSpan();
-            var closes = fxData.Select(d => Convert.ToSingle(d.Close ?? 0m)).ToArray().AsSpan();
+            var highs = fxData.Select(d => Convert.ToSingle(d.High.GetValueOrDefault())).ToArray().AsSpan();
+            var lows = fxData.Select(d => Convert.ToSingle(d.Low.GetValueOrDefault())).ToArray().AsSpan();
+            var closes = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var natrValues = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookback;
+            
+            var natrValues = new float[NoReturned];
             var range = new Range(0, highs.Length - 1);
 
             // Call NATR function
@@ -2809,25 +2519,19 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, normalize and return NATR values
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    signals.Add(natrValues[i]);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return natrValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating NATR indicator. RetCode: {retCode}");
             }
         }
-
-        public float[] PlusDI(List<IndicatorDataPoint> fxData, int optInTimePeriod = 14)
+        public float[] PlusDI(List<ITradingDataPoint<T>> fxData, int optInTimePeriod = 14)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.PlusDILookback(optInTimePeriod))
+            int lookback = Functions.PlusDILookback(optInTimePeriod);
+
+            
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -2836,12 +2540,13 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
 
 
             // Extract High, Low, and Close prices as floats
-            var highs = fxData.Select(d => Convert.ToSingle(d.High ?? 0m)).ToArray().AsSpan();
-            var lows = fxData.Select(d => Convert.ToSingle(d.Low ?? 0m)).ToArray().AsSpan();
-            var closes = fxData.Select(d => Convert.ToSingle(d.Close ?? 0m)).ToArray().AsSpan();
+            var highs = fxData.Select(d => Convert.ToSingle(d.High.GetValueOrDefault())).ToArray().AsSpan();
+            var lows = fxData.Select(d => Convert.ToSingle(d.Low.GetValueOrDefault())).ToArray().AsSpan();
+            var closes = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var plusDIValues = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookback;
+            
+            var plusDIValues = new float[NoReturned];
             var range = new Range(0, highs.Length - 1);
 
             // Call PlusDI function
@@ -2857,24 +2562,18 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, normalize and return PlusDI values
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    signals.Add(plusDIValues[i]);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return plusDIValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating PlusDI indicator. RetCode: {retCode}");
             }
         }
-        public float[] PlusDM(List<IndicatorDataPoint> fxData, int optInTimePeriod = 14)
+        public float[] PlusDM(List<ITradingDataPoint<T>> fxData, int optInTimePeriod = 14)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.PlusDMLookback(optInTimePeriod))
+            int lookback = Functions.PlusDMLookback(optInTimePeriod);
+            
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -2882,11 +2581,13 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
 
             // Extract High and Low prices as floats
-            var highs = fxData.Select(d => Convert.ToSingle(d.High ?? 0m)).ToArray().AsSpan();
-            var lows = fxData.Select(d => Convert.ToSingle(d.Low ?? 0m)).ToArray().AsSpan();
+            var highs = fxData.Select(d => Convert.ToSingle(d.High.GetValueOrDefault())).ToArray().AsSpan();
+            var lows = fxData.Select(d => Convert.ToSingle(d.Low.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var plusDMValues = new float[fxData.Count];
+
+            int NoReturned = fxData.Count() - lookback;
+            
+            float[] plusDMValues = new float[NoReturned];
             var range = new Range(0, highs.Length - 1);
 
             // Call PlusDM function
@@ -2901,24 +2602,18 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, normalize and return PlusDM values
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    signals.Add(plusDMValues[i]);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return plusDMValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating PlusDM indicator. RetCode: {retCode}");
             }
         }
-        public float[] Ppo(List<IndicatorDataPoint> fxData, int optInFastPeriod = 12, int optInSlowPeriod = 26, Core.MAType optInMAType = Core.MAType.Sma)
+        public float[] Ppo(List<ITradingDataPoint<T>> fxData, int optInFastPeriod = 12, int optInSlowPeriod = 26, Core.MAType optInMAType = Core.MAType.Sma)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.PpoLookback(optInFastPeriod, optInSlowPeriod, optInMAType))
+            int lookback = Functions.PpoLookback(optInFastPeriod, optInSlowPeriod, optInMAType);
+            
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -2926,10 +2621,12 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
 
             // Extract prices as floats (using Close prices or any other relevant value)
-            var prices = fxData.Select(d => Convert.ToSingle(d.Close ?? 0m)).ToArray().AsSpan();
+            var prices = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var ppoValues = new float[fxData.Count];
+
+            int NoReturned = fxData.Count() - lookback;
+            
+            var ppoValues = new float[NoReturned];
             var range = new Range(0, prices.Length-1);
 
             // Call PPO function
@@ -2945,24 +2642,18 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, normalize and return PPO values
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    signals.Add(ppoValues[i]);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return ppoValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating PPO indicator. RetCode: {retCode}");
             }
         }
-        public float[] Roc(List<IndicatorDataPoint> fxData, int optInTimePeriod = 10)
+        public float[] Roc(List<ITradingDataPoint<T>> fxData, int optInTimePeriod = 10)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.RocLookback(optInTimePeriod))
+            int lookback = Functions.RocLookback(optInTimePeriod);
+            
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -2970,10 +2661,11 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
 
             // Extract prices as floats (using Close prices or any other relevant value)
-            var prices = fxData.Select(d => Convert.ToSingle(d.Close ?? 0m)).ToArray().AsSpan();
+            var prices = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var rocValues = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookback;
+            
+            var rocValues = new float[NoReturned];
             var range = new Range(0, prices.Length-1);
 
             // Call ROC function
@@ -2987,24 +2679,18 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, normalize and return ROC values
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    signals.Add(rocValues[i]);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return rocValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating ROC indicator. RetCode: {retCode}");
             }
         }
-        public float[] RocP(List<IndicatorDataPoint> fxData, int optInTimePeriod = 10)
+        public float[] RocP(List<ITradingDataPoint<T>> fxData, int optInTimePeriod = 10)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.RocPLookback(optInTimePeriod))
+            int lookback = Functions.RocPLookback(optInTimePeriod);
+            
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -3012,10 +2698,11 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
 
             // Extract prices as floats (using Close prices or any other relevant value)
-            var prices = fxData.Select(d => Convert.ToSingle(d.Close ?? 0m)).ToArray().AsSpan();
+            var prices = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var rocpValues = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookback;
+            
+            var rocpValues = new float[NoReturned];
             var range = new Range(0, prices.Length-1);
 
             // Call ROCP function
@@ -3029,24 +2716,18 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, normalize and return ROCP values
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    signals.Add(rocpValues[i]);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return rocpValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating ROCP indicator. RetCode: {retCode}");
             }
         }
-        public float[] RocR(List<IndicatorDataPoint> fxData, int optInTimePeriod = 10)
+        public float[] RocR(List<ITradingDataPoint<T>> fxData, int optInTimePeriod = 10)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.RocRLookback(optInTimePeriod))
+            int lookback = Functions.RocRLookback(optInTimePeriod);
+            
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -3054,10 +2735,11 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
 
             // Extract prices as floats (using Close prices or any other relevant value)
-            var prices = fxData.Select(d => Convert.ToSingle(d.Close ?? 0m)).ToArray().AsSpan();
+            var prices = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var rocrValues = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookback;
+            
+            var rocrValues = new float[NoReturned];
             var range = new Range(0, prices.Length-1);
 
             // Call ROCR function
@@ -3071,25 +2753,18 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, normalize and return ROCR values
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    signals.Add(rocrValues[i]);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return rocrValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating ROCR indicator. RetCode: {retCode}");
             }
         }
-        public float[] RocR100(List<IndicatorDataPoint> fxData, int optInTimePeriod = 10)
+        public float[] RocR100(List<ITradingDataPoint<T>> fxData, int optInTimePeriod = 10)
         {
-            // Validate input data length
+            int lookback = Functions.RocR100Lookback(optInTimePeriod);
 
-            if (fxData == null || fxData.Count < Functions.RocR100Lookback(optInTimePeriod))
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -3097,10 +2772,11 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
 
             // Extract prices as floats (using Close prices or any other relevant value)
-            var prices = fxData.Select(d => Convert.ToSingle(d.Close ?? 0m)).ToArray().AsSpan();
+            var prices = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var rocr100Values = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookback;
+            
+            var rocr100Values = new float[NoReturned];
             var range = new Range(0, prices.Length-1);
 
             // Call ROCR100 function
@@ -3114,34 +2790,30 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, normalize and return ROCR100 values
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    signals.Add(rocr100Values[i]);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return rocr100Values.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating ROCR100 indicator. RetCode: {retCode}");
             }
         }
-        public float[] Rsi(List<IndicatorDataPoint> fxData, int optInTimePeriod = 14)
+        public float[] Rsi(List<ITradingDataPoint<T>> fxData, int optInTimePeriod = 14)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.RsiLookback(optInTimePeriod))
+            int lookback = Functions.RsiLookback(optInTimePeriod);
+
+            
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
                 throw new NotEnoughDataException($"Not enough data to calculate {methodName} indicator for the chosen time period {optInTimePeriod}.");
             }
             // Extract prices as floats (using Close prices or any other relevant value)
-            var prices = fxData.Select(d => Convert.ToSingle(d.Close ?? 0m)).ToArray().AsSpan();
+            var prices = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var rsiValues = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookback;
+            
+            var rsiValues = new float[NoReturned];
             var range = new Range(0, prices.Length-1);
 
             // Call RSI function
@@ -3155,24 +2827,19 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, normalize and return RSI values
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    signals.Add(rsiValues[i]);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return rsiValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating RSI indicator. RetCode: {retCode}");
             }
         }
-        public float[] Sar(List<IndicatorDataPoint> fxData, double optInAcceleration = 0.02, double optInMaximum = 0.2)
+        public float[] Sar(List<ITradingDataPoint<T>> fxData, double optInAcceleration = 0.02, double optInMaximum = 0.2)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.SarLookback())
+            int lookback = Functions.SarLookback();
+
+
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -3180,11 +2847,12 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
 
             // Extract high and low prices as floats
-            var highs = fxData.Select(d => Convert.ToSingle(d.High ?? 0m)).ToArray().AsSpan();
-            var lows = fxData.Select(d => Convert.ToSingle(d.Low ?? 0m)).ToArray().AsSpan();
+            var highs = fxData.Select(d => Convert.ToSingle(d.High.GetValueOrDefault())).ToArray().AsSpan();
+            var lows = fxData.Select(d => Convert.ToSingle(d.Low.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var sarValues = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookback;
+
+            var sarValues = new float[NoReturned];
             var range = new Range(0, highs.Length - 1);
 
             // Call SAR function
@@ -3200,26 +2868,19 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, normalize and return SAR values
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    // Generate a binary signal: 1 for long, -1 for short (based on SAR positioning)
-                    var signal = sarValues[i] > lows[i] ? -1 : 1; // Adjust logic as needed
-                    signals.Add(signal);
-                }
-
-                return signals.ToArray(); // Return the list of signals
+                return sarValues.ToArray(); // Return the list of signals
             }
             else
             {
                 throw new Exception($"Error calculating SAR indicator. RetCode: {retCode}");
             }
         }
-        public float[] SarExt(List<IndicatorDataPoint> fxData, double optInStartValue = 0.0, double optInOffsetOnReverse = 0.0, double optInAccelerationInitLong = 0.02, double optInAccelerationLong = 0.02, double optInAccelerationMaxLong = 0.2, double optInAccelerationInitShort = 0.02, double optInAccelerationShort = 0.02, double optInAccelerationMaxShort = 0.2)
+        public float[] SarExt(List<ITradingDataPoint<T>> fxData, double optInStartValue = 0.0, double optInOffsetOnReverse = 0.0, double optInAccelerationInitLong = 0.02, double optInAccelerationLong = 0.02, double optInAccelerationMaxLong = 0.2, double optInAccelerationInitShort = 0.02, double optInAccelerationShort = 0.02, double optInAccelerationMaxShort = 0.2)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.SarExtLookback())
+            int lookback = Functions.SarExtLookback();
+
+
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -3227,11 +2888,13 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
 
             // Extract high and low prices as floats
-            var highs = fxData.Select(d => Convert.ToSingle(d.High ?? 0m)).ToArray().AsSpan();
-            var lows = fxData.Select(d => Convert.ToSingle(d.Low ?? 0m)).ToArray().AsSpan();
+            var highs = fxData.Select(d => Convert.ToSingle(d.High.GetValueOrDefault())).ToArray().AsSpan();
+            var lows = fxData.Select(d => Convert.ToSingle(d.Low.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var sarValues = new float[fxData.Count];
+
+            int NoReturned = fxData.Count() - lookback;
+
+            var sarValues = new float[NoReturned];
             var range = new Range(0, highs.Length - 1);
 
             // Call SAR Ext function
@@ -3253,38 +2916,30 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, normalize and return SAR Ext values
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    // Generate a binary signal: 1 for long, -1 for short (based on SAR positioning)
-                    var signal = sarValues[i] > lows[i] ? -1 : 1; // Adjust logic as needed
-                    signals.Add(signal);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return sarValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating SAR Ext indicator. RetCode: {retCode}");
             }
         }
-        public float[] Sin(List<IndicatorDataPoint> fxData)
+        public float[] Sin(List<ITradingDataPoint<T>> fxData)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.SinLookback())
+            int lookback = Functions.SinLookback();
+
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
                 throw new NotEnoughDataException($"Not enough data to calculate {methodName} indicator for the chosen time period.");
             }
 
-
             // Extract input values as floats
-            var inputValues = fxData.Select(d => Convert.ToSingle(d.Close ?? 0m)).ToArray().AsSpan();
+            var inputValues = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var sinValues = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookback;
+
+            var sinValues = new float[NoReturned];
             var range = new Range(0, inputValues.Length - 1);
 
             // Call Sin function
@@ -3297,24 +2952,17 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, normalize and return Sin values
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    signals.Add(sinValues[i]);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return sinValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating Sin indicator. RetCode: {retCode}");
             }
         }
-        public float[] Sinh(List<IndicatorDataPoint> fxData)
+        public float[] Sinh(List<ITradingDataPoint<T>> fxData)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.SinhLookback())
+            int lookback = Functions.SinhLookback();
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -3322,16 +2970,16 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
 
 
-            // Extract input values as floats
-            var inputValues = fxData.Select(d => Convert.ToSingle(d.Close ?? 0m)).ToArray().AsSpan();
+            var PriceChanges = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault()) - Convert.ToSingle(d.Open.GetValueOrDefault())).ToArray().NormalizeToRange().AsSpan();
 
-            // Prepare output array
-            var sinhValues = new float[fxData.Count];
-            var range = new Range(0, inputValues.Length - 1);
+            int NoReturned = fxData.Count() - lookback;
+
+            var sinhValues = new float[NoReturned];
+            var range = new Range(0, PriceChanges.Length - 1);
 
             // Call Sinh function
             var retCode = Functions.Sinh<float>(
-                inputValues,
+                PriceChanges,
                 range,
                 sinhValues,
                 out var outputRange);
@@ -3339,24 +2987,18 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, normalize and return Sinh values
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    signals.Add(sinhValues[i]);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return sinhValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating Sinh indicator. RetCode: {retCode}");
             }
         }
-        public float[] Sma(List<IndicatorDataPoint> fxData, int optInTimePeriod = 30)
+        public float[] Sma(List<ITradingDataPoint<T>> fxData, int optInTimePeriod = 30)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.SmaLookback(optInTimePeriod))
+            int lookback = Functions.SmaLookback(optInTimePeriod);
+
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -3364,10 +3006,11 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
 
             // Extract input values as floats
-            var inputValues = fxData.Select(d => Convert.ToSingle(d.Close ?? 0m)).ToArray().AsSpan();
+            var inputValues = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var smaValues = new float[fxData.Count];
+
+            int NoReturned = fxData.Count() - lookback;
+            var smaValues = new float[NoReturned];
             var range = new Range(0, inputValues.Length - 1);
 
             // Call SMA function
@@ -3381,24 +3024,18 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, normalize and return SMA values
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    signals.Add(smaValues[i]);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return smaValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating SMA indicator. RetCode: {retCode}");
             }
         }
-        public float[] Sqrt(List<IndicatorDataPoint> fxData)
+        public float[] Sqrt(List<ITradingDataPoint<T>> fxData)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.SqrtLookback())
+            int lookback = Functions.SqrtLookback();
+
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -3406,11 +3043,11 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
 
 
+            int NoReturned = fxData.Count() - lookback;
             // Extract input values as floats
-            var inputValues = fxData.Select(d => Convert.ToSingle(d.Close ?? 0m)).ToArray().AsSpan();
+            var inputValues = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var sqrtValues = new float[fxData.Count];
+            var sqrtValues = new float[NoReturned];
             var range = new Range(0, inputValues.Length - 1);
 
             // Call Sqrt function
@@ -3423,24 +3060,17 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, normalize and return Sqrt values
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    signals.Add(sqrtValues[i]);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return sqrtValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating Sqrt indicator. RetCode: {retCode}");
             }
         }
-        public float[] StdDev(List<IndicatorDataPoint> fxData, int optInTimePeriod = 5, double optInNbDev = 1.0)
+        public float[] StdDev(List<ITradingDataPoint<T>> fxData, int optInTimePeriod = 5, double optInNbDev = 1.0)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.StdDevLookback(optInTimePeriod))
+            int lookback = Functions.StdDevLookback(optInTimePeriod);
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
 
@@ -3448,10 +3078,11 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
 
             // Extract input values as floats
-            var inputValues = fxData.Select(d => Convert.ToSingle(d.Close ?? 0m)).ToArray().AsSpan();
+            var inputValues = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var stdDevValues = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookback;
+
+            var stdDevValues = new float[NoReturned];
             var range = new Range(0, inputValues.Length - 1);
 
             // Call StdDev function
@@ -3466,37 +3097,34 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, normalize and return StdDev values
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    signals.Add(stdDevValues[i]);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return stdDevValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating StdDev indicator. RetCode: {retCode}");
             }
         }
-        public float[] Stoch(List<IndicatorDataPoint> fxData, int optInFastKPeriod = 5, int optInSlowKPeriod = 3, Core.MAType optInSlowKMAType = Core.MAType.Sma, int optInSlowDPeriod = 3, Core.MAType optInSlowDMAType = Core.MAType.Sma)
+        public float[] Stoch(List<ITradingDataPoint<T>> fxData, int optInFastKPeriod = 5, int optInSlowKPeriod = 3, Core.MAType optInSlowKMAType = Core.MAType.Sma, int optInSlowDPeriod = 3, Core.MAType optInSlowDMAType = Core.MAType.Sma)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.StochLookback(optInFastKPeriod, optInSlowKPeriod, optInSlowKMAType, optInSlowDPeriod, optInSlowDMAType))
+            int lookback = Functions.StochLookback(optInFastKPeriod, optInSlowKPeriod, optInSlowKMAType, optInSlowDPeriod, optInSlowDMAType);
+
+
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
                 throw new NotEnoughDataException($"Not enough data to calculate {methodName} indicator for the chosen time period.");
             }
 
             // Extract high, low, and close values as floats
-            var highs = fxData.Select(d => Convert.ToSingle(d.High ?? 0m)).ToArray().AsSpan();
-            var lows = fxData.Select(d => Convert.ToSingle(d.Low ?? 0m)).ToArray().AsSpan();
-            var closes = fxData.Select(d => Convert.ToSingle(d.Close ?? 0m)).ToArray().AsSpan();
+            var highs = fxData.Select(d => Convert.ToSingle(d.High.GetValueOrDefault())).ToArray().AsSpan();
+            var lows = fxData.Select(d => Convert.ToSingle(d.Low.GetValueOrDefault())).ToArray().AsSpan();
+            var closes = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output arrays
-            var slowKValues = new float[fxData.Count];
-            var slowDValues = new float[fxData.Count];
+
+            int NoReturned = fxData.Count() - lookback;
+
+            var slowKValues = new float[NoReturned];
+            var slowDValues = new float[NoReturned];
             var range = new Range(0, highs.Length - 1);
 
             // Call Stoch function
@@ -3518,35 +3146,38 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             if (retCode == Core.RetCode.Success)
             {
                 var signals = new List<float>();
-
+                int x = 0;
                 for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
                 {
-                    signals.Add(slowKValues[i] + slowDValues[i]);
+                    signals.Add(slowKValues[x] + slowDValues[x]);
+                    x++;
                 }
 
-                return signals.ToArray(); // Return the array of signals
+                return signals.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating Stochastic indicator. RetCode: {retCode}");
             }
         }
-        public float[] StochF(List<IndicatorDataPoint> fxData, int optInFastKPeriod = 5, int optInFastDPeriod = 3, Core.MAType optInFastDMAType = Core.MAType.Sma)
+        public float[] StochF(List<ITradingDataPoint<T>> fxData, int optInFastKPeriod = 5, int optInFastDPeriod = 3, Core.MAType optInFastDMAType = Core.MAType.Sma)
         {
-            if (fxData == null || fxData.Count < Functions.StochFLookback(optInFastKPeriod, optInFastDPeriod))
+            int lookback = Functions.StochFLookback(optInFastKPeriod, optInFastDPeriod);
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
                 throw new NotEnoughDataException($"Not enough data to calculate {methodName} indicator for the chosen time period. Fast K Period: {optInFastKPeriod} and Fast D Period: {optInFastDPeriod}");
             }
 
-            // Extract high, low, and close values as floats
-            var highs = fxData.Select(d => Convert.ToSingle(d.High ?? 0m)).ToArray().AsSpan();
-            var lows = fxData.Select(d => Convert.ToSingle(d.Low ?? 0m)).ToArray().AsSpan();
-            var closes = fxData.Select(d => Convert.ToSingle(d.Close ?? 0m)).ToArray().AsSpan();
 
-            // Prepare output arrays
-            var fastKValues = new float[fxData.Count];
-            var fastDValues = new float[fxData.Count];
+            var highs = fxData.Select(d => Convert.ToSingle(d.High.GetValueOrDefault())).ToArray().AsSpan();
+            var lows = fxData.Select(d => Convert.ToSingle(d.Low.GetValueOrDefault())).ToArray().AsSpan();
+            var closes = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
+
+            int NoReturned = fxData.Count() - lookback;
+
+            var fastKValues = new float[NoReturned];
+            var fastDValues = new float[NoReturned];
             var range = new Range(0, highs.Length - 1);
 
             // Call StochF function
@@ -3566,33 +3197,36 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             if (retCode == Core.RetCode.Success)
             {
                 var signals = new List<float>();
-
+                int x = 0;
                 for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
                 {
-                    signals.Add(fastKValues[i] + fastDValues[i]);
+                    signals.Add(fastKValues[x] + fastDValues[x]);
+                    x++;
                 }
 
-                return signals.ToArray(); // Return the array of signals
+                return signals.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating Stochastic Fast indicator. RetCode: {retCode}");
             }
         }
-        public float[] StochRsi(List<IndicatorDataPoint> fxData, int optInTimePeriod = 14, int optInFastKPeriod = 5, int optInFastDPeriod = 3, Core.MAType optInFastDMAType = Core.MAType.Sma)
+        public float[] StochRsi(List<ITradingDataPoint<T>> fxData, int optInTimePeriod = 14, int optInFastKPeriod = 5, int optInFastDPeriod = 3, Core.MAType optInFastDMAType = Core.MAType.Sma)
         {
-            if (fxData == null || fxData.Count < Functions.StochRsiLookback(optInFastKPeriod, optInFastDPeriod))
+            int lookback = Functions.StochRsiLookback(optInFastKPeriod, optInFastDPeriod);
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
                 throw new NotEnoughDataException($"Not enough data to calculate {methodName} indicator for the chosen time period. Fast K Period: {optInFastKPeriod} and Fast D Period: {optInFastDPeriod}");
             }
 
             // Extract close values as floats
-            var closes = fxData.Select(d => Convert.ToSingle(d.Close ?? 0m)).ToArray().AsSpan();
+            var closes = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output arrays
-            var fastKValues = new float[fxData.Count];
-            var fastDValues = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookback;
+
+            var fastKValues = new float[NoReturned];
+            var fastDValues = new float[NoReturned];
             var range = new Range(0, closes.Length - 1);
 
             // Call StochRsi function
@@ -3611,33 +3245,36 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             if (retCode == Core.RetCode.Success)
             {
                 var signals = new List<float>();
-
+                int x = 0;
                 for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
                 {
-                    signals.Add(fastKValues[i] + fastDValues[i]);
+                    signals.Add(fastKValues[x] + fastDValues[x]);
+                    x++;
                 }
 
-                return signals.ToArray(); // Return the array of signals
+                return signals.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating Stochastic RSI indicator. RetCode: {retCode}");
             }
         }
-        public float[] Sub(List<IndicatorDataPoint> fxData0, List<IndicatorDataPoint> fxData1)
+        public float[] Sub(List<ITradingDataPoint<T>> fxData0, List<ITradingDataPoint<T>> fxData1)
         {
-            // Validate input data lengths
-            if (fxData0 == null || fxData0.Count < Functions.SubLookback())
+            int lookback = Functions.SubLookback();
+            if (fxData0 == null || fxData0.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
                 throw new NotEnoughDataException($"Not enough data to calculate {methodName} indicator for the chosen time period.");
             }
             // Extract input values as floats
-            var inputValues0 = fxData0.Select(d => Convert.ToSingle(d.Close ?? 0m)).ToArray().AsSpan();
-            var inputValues1 = fxData1.Select(d => Convert.ToSingle(d.Close ?? 0m)).ToArray().AsSpan();
+            var inputValues0 = fxData0.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
+            var inputValues1 = fxData1.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var subValues = new float[fxData0.Count];
+
+            int NoReturned = fxData0.Count() - lookback;
+
+            var subValues = new float[NoReturned];
             var range = new Range(0, inputValues0.Length - 1);
 
             // Call Sub function
@@ -3651,34 +3288,28 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, normalize and return Sub values
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    signals.Add(subValues[i]);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return subValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating Sub indicator. RetCode: {retCode}");
             }
         }
-        public float[] Sum(List<IndicatorDataPoint> fxData, int optInTimePeriod = 30)
+        public float[] Sum(List<ITradingDataPoint<T>> fxData, int optInTimePeriod = 30)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.SumLookback(optInTimePeriod))
+            int lookback = Functions.SumLookback(optInTimePeriod);
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
                 throw new NotEnoughDataException($"Not enough data to calculate {methodName} indicator for the chosen time period {optInTimePeriod}.");
             }
 
             // Extract input values as floats
-            var inputValues = fxData.Select(d => Convert.ToSingle(d.Close ?? 0m)).ToArray().AsSpan();
+            var inputValues = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var sumValues = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookback;
+
+            var sumValues = new float[NoReturned];
             var range = new Range(0, inputValues.Length - 1);
 
             // Call Sum function
@@ -3692,34 +3323,29 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, normalize and return Sum values
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    signals.Add(sumValues[i]);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return sumValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating Sum indicator. RetCode: {retCode}");
             }
         }
-        public float[] T3(List<IndicatorDataPoint> fxData, int optInTimePeriod = 5, double optInVFactor = 0.7)
+        public float[] T3(List<ITradingDataPoint<T>> fxData, int optInTimePeriod = 5, double optInVFactor = 0.7)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.T3Lookback(optInTimePeriod))
+            int lookback = Functions.T3Lookback(optInTimePeriod);
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
                 throw new NotEnoughDataException($"Not enough data to calculate {methodName} indicator for the chosen time period {optInTimePeriod}.");
             }
 
             // Extract input values as floats
-            var inputValues = fxData.Select(d => Convert.ToSingle(d.Close ?? 0m)).ToArray().AsSpan();
+            var inputValues = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var t3Values = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookback;
+
+
+            var t3Values = new float[NoReturned];
             var range = new Range(0, inputValues.Length - 1);
 
             // Call T3 function
@@ -3731,36 +3357,29 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
                 optInTimePeriod,
                 optInVFactor);
 
-            // If successful, normalize and return T3 values
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    signals.Add(t3Values[i]);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return t3Values.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating T3 indicator. RetCode: {retCode}");
             }
         }
-        public float[] Tan(List<IndicatorDataPoint> fxData)
+        public float[] Tan(List<ITradingDataPoint<T>> fxData)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.TanLookback())
+            int lookback = Functions.TanLookback();
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
                 throw new NotEnoughDataException($"Not enough data to calculate {methodName} indicator for the chosen time period.");
             }
             // Extract input values as floats
-            var inputValues = fxData.Select(d => Convert.ToSingle(d.Close ?? 0m)).ToArray().AsSpan();
+            var inputValues = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var tanValues = new float[fxData.Count];
+
+            int NoReturned = fxData.Count() - lookback;
+            var tanValues = new float[NoReturned];
             var range = new Range(0, inputValues.Length - 1);
 
             // Call Tan function
@@ -3773,40 +3392,31 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, normalize and return Tan values
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    signals.Add(tanValues[i]);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return tanValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating Tan indicator. RetCode: {retCode}");
             }
         }
-        public float[] Tanh(List<IndicatorDataPoint> fxData)
+        public float[] Tanh(List<ITradingDataPoint<T>> fxData)
         {
-            // Validate input data length
-
-            if (fxData == null || fxData.Count < Functions.TanhLookback())
+            int lookback = Functions.TanhLookback();
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
                 throw new NotEnoughDataException($"Not enough data to calculate {methodName} indicator for the chosen time period.");
             }
 
-            // Extract input values as floats
-            var inputValues = fxData.Select(d => Convert.ToSingle(d.Close ?? 0m)).ToArray().AsSpan();
+            var PriceChanges = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault()) - Convert.ToSingle(d.Open.GetValueOrDefault())).ToArray().NormalizeToRange().AsSpan();
 
-            // Prepare output array
-            var tanhValues = new float[fxData.Count];
-            var range = new Range(0, inputValues.Length - 1);
+            int NoReturned = fxData.Count() - lookback;
+            var tanhValues = new float[NoReturned];
+            var range = new Range(0, PriceChanges.Length - 1);
 
             // Call Tanh function
             var retCode = Functions.Tanh<float>(
-                inputValues,
+                PriceChanges,
                 range,
                 tanhValues,
                 out var outputRange);
@@ -3814,35 +3424,29 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, normalize and return Tanh values
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    signals.Add(tanhValues[i]);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return tanhValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating Tanh indicator. RetCode: {retCode}");
             }
         }
-        public float[] Tema(List<IndicatorDataPoint> fxData, int optInTimePeriod = 30)
+        public float[] Tema(List<ITradingDataPoint<T>> fxData, int optInTimePeriod = 30)
         {
-            // Validate input data length
 
-            if (fxData == null || fxData.Count < Functions.TemaLookback(optInTimePeriod))
+            int lookback = Functions.TemaLookback(optInTimePeriod);
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
                 throw new NotEnoughDataException($"Not enough data to calculate {methodName} indicator for the chosen time period {optInTimePeriod}.");
             }
 
             // Extract input values as floats
-            var inputValues = fxData.Select(d => Convert.ToSingle(d.Close ?? 0m)).ToArray().AsSpan();
+            var inputValues = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var temaValues = new float[fxData.Count];
+
+            int NoReturned = fxData.Count() - lookback;
+            var temaValues = new float[NoReturned];
             var range = new Range(0, inputValues.Length - 1);
 
             // Call Tema function
@@ -3856,36 +3460,30 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, normalize and return TEMA values
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    signals.Add(temaValues[i]);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return temaValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating TEMA indicator. RetCode: {retCode}");
             }
         }
-        public float[] TRange(List<IndicatorDataPoint> fxData)
+        public float[] TRange(List<ITradingDataPoint<T>> fxData)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.TRangeLookback())
+            int lookback = Functions.TRangeLookback();
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
                 throw new NotEnoughDataException($"Not enough data to calculate {methodName} indicator for the chosen time period.");
             }
 
             // Extract high, low, and close values as floats
-            var highs = fxData.Select(d => Convert.ToSingle(d.High ?? 0m)).ToArray().AsSpan();
-            var lows = fxData.Select(d => Convert.ToSingle(d.Low ?? 0m)).ToArray().AsSpan();
-            var closes = fxData.Select(d => Convert.ToSingle(d.Close ?? 0m)).ToArray().AsSpan();
+            var highs = fxData.Select(d => Convert.ToSingle(d.High.GetValueOrDefault())).ToArray().AsSpan();
+            var lows = fxData.Select(d => Convert.ToSingle(d.Low.GetValueOrDefault())).ToArray().AsSpan();
+            var closes = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var tRangeValues = new float[fxData.Count];
+
+            int NoReturned = fxData.Count() - lookback;
+            var tRangeValues = new float[NoReturned];
             var range = new Range(0, highs.Length - 1);
 
             // Call TRange function
@@ -3900,34 +3498,28 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, normalize and return True Range values
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    signals.Add(tRangeValues[i]);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return tRangeValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating True Range indicator. RetCode: {retCode}");
             }
         }
-        public float[] Trima(List<IndicatorDataPoint> fxData, int optInTimePeriod = 30)
+        public float[] Trima(List<ITradingDataPoint<T>> fxData, int optInTimePeriod = 30)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.TrimaLookback(optInTimePeriod))
+            int lookback = Functions.TrimaLookback(optInTimePeriod);
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
                 throw new NotEnoughDataException($"Not enough data to calculate {methodName} indicator for the chosen time period {optInTimePeriod}.");
             }
 
             // Extract input values as floats
-            var inputValues = fxData.Select(d => Convert.ToSingle(d.Close ?? 0m)).ToArray().AsSpan();
+            var inputValues = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var trimaValues = new float[fxData.Count];
+
+            int NoReturned = fxData.Count() - lookback;
+            var trimaValues = new float[NoReturned];
             var range = new Range(0, inputValues.Length - 1);
 
             // Call Trima function
@@ -3941,25 +3533,18 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, normalize and return Trima values
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    signals.Add(trimaValues[i]);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return trimaValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating Trima indicator. RetCode: {retCode}");
             }
         }
-        public float[] Trix(List<IndicatorDataPoint> fxData, int optInTimePeriod = 30)
+        public float[] Trix(List<ITradingDataPoint<T>> fxData, int optInTimePeriod = 30)
         {
 
             int lookBack = Functions.TrixLookback(optInTimePeriod);
-            // Validate input data length
+            
             if (fxData == null || fxData.Count < lookBack)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
@@ -3967,10 +3552,11 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             }
 
             // Extract input values as floats
-            var inputValues = fxData.Select(d => Convert.ToSingle(d.Close ?? 0m)).ToArray().AsSpan();
+            var inputValues = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var trixValues = new float[fxData.Count];
+
+            int NoReturned = fxData.Count() - lookBack;
+            var trixValues = new float[NoReturned];
             var range = new Range(0, inputValues.Length - 1);
 
             // Call Trix function
@@ -3984,33 +3570,27 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, normalize and return Trix values
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    signals.Add(trixValues[i]);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return trixValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating Trix indicator. RetCode: {retCode}");
             }
         }
-        public float[] Tsf(List<IndicatorDataPoint> fxData, int optInTimePeriod = 14)
+        public float[] Tsf(List<ITradingDataPoint<T>> fxData, int optInTimePeriod = 14)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.TsfLookback(optInTimePeriod))
+            int lookBack = Functions.TsfLookback(optInTimePeriod);
+            if (fxData == null || fxData.Count < lookBack)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
                 throw new NotEnoughDataException($"Not enough data to calculate {methodName} indicator for the chosen time period {optInTimePeriod}.");
             }
             // Extract input values as floats
-            var inputValues = fxData.Select(d => Convert.ToSingle(d.Close ?? 0m)).ToArray().AsSpan();
+            var inputValues = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var tsfValues = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookBack;
+
+            var tsfValues = new float[NoReturned];
             var range = new Range(0, inputValues.Length - 1);
 
             // Call Tsf function
@@ -4024,37 +3604,31 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, normalize and return TSF values
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    signals.Add(tsfValues[i]);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return tsfValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating TSF indicator. RetCode: {retCode}");
             }
         }
-        public float[] TypPrice(List<IndicatorDataPoint> fxData)
+        public float[] TypPrice(List<ITradingDataPoint<T>> fxData)
         {
-            // Validate input data length
+            int lookBack = Functions.TypPriceLookback();
 
-            if (fxData == null || fxData.Count < Functions.TypPriceLookback())
+            if (fxData == null || fxData.Count < lookBack)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
                 throw new NotEnoughDataException($"Not enough data to calculate {methodName} indicator for the chosen time period.");
             }
 
             // Extract high, low, and close values as floats
-            var highs = fxData.Select(d => Convert.ToSingle(d.High ?? 0m)).ToArray().AsSpan();
-            var lows = fxData.Select(d => Convert.ToSingle(d.Low ?? 0m)).ToArray().AsSpan();
-            var closes = fxData.Select(d => Convert.ToSingle(d.Close ?? 0m)).ToArray().AsSpan();
+            var highs = fxData.Select(d => Convert.ToSingle(d.High.GetValueOrDefault())).ToArray().AsSpan();
+            var lows = fxData.Select(d => Convert.ToSingle(d.Low.GetValueOrDefault())).ToArray().AsSpan();
+            var closes = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var typPriceValues = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookBack;
+
+            var typPriceValues = new float[NoReturned];
             var range = new Range(0, highs.Length - 1);
 
             // Call TypPrice function
@@ -4069,37 +3643,31 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, normalize and return Typical Price values
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    signals.Add(typPriceValues[i]);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return typPriceValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating Typical Price indicator. RetCode: {retCode}");
             }
         }
-        public float[] UltOsc(List<IndicatorDataPoint> fxData, int optInTimePeriod1 = 7, int optInTimePeriod2 = 14, int optInTimePeriod3 = 28)
+        public float[] UltOsc(List<ITradingDataPoint<T>> fxData, int optInTimePeriod1 = 7, int optInTimePeriod2 = 14, int optInTimePeriod3 = 28)
         {
-            // Validate input data length
+            int lookback = Functions.UltOscLookback(optInTimePeriod1, optInTimePeriod1, optInTimePeriod3);
 
-            if (fxData == null || fxData.Count < Functions.UltOscLookback(optInTimePeriod1, optInTimePeriod1, optInTimePeriod3))
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
                 throw new NotEnoughDataException($"Not enough data to calculate {methodName} indicator for the chosen time period. Period1:{optInTimePeriod1} and Period2:{optInTimePeriod2} and Period3:{optInTimePeriod3}");
             }
 
             // Extract high, low, and close values as floats
-            var highs = fxData.Select(d => Convert.ToSingle(d.High ?? 0m)).ToArray().AsSpan();
-            var lows = fxData.Select(d => Convert.ToSingle(d.Low ?? 0m)).ToArray().AsSpan();
-            var closes = fxData.Select(d => Convert.ToSingle(d.Close ?? 0m)).ToArray().AsSpan();
+            var highs = fxData.Select(d => Convert.ToSingle(d.High.GetValueOrDefault())).ToArray().AsSpan();
+            var lows = fxData.Select(d => Convert.ToSingle(d.Low.GetValueOrDefault())).ToArray().AsSpan();
+            var closes = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var ultOscValues = new float[fxData.Count];
+
+            int NoReturned = fxData.Count() - lookback;
+            var ultOscValues = new float[NoReturned];
             var range = new Range(0, highs.Length - 1);
 
             // Call UltOsc function
@@ -4117,35 +3685,28 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, normalize and return Ultimate Oscillator values
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    signals.Add(ultOscValues[i]);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return ultOscValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating Ultimate Oscillator. RetCode: {retCode}");
             }
         }
-        public float[] Var(List<IndicatorDataPoint> fxData, int optInTimePeriod = 5)
+        public float[] Var(List<ITradingDataPoint<T>> fxData, int optInTimePeriod = 5)
         {
-            // Validate input data length
-
-            if (fxData == null || fxData.Count < Functions.VarLookback(optInTimePeriod))
+            int lookBack = Functions.VarLookback(optInTimePeriod);
+            if (fxData == null || fxData.Count < lookBack)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
                 throw new NotEnoughDataException($"Not enough data to calculate {methodName} indicator for the chosen time period {optInTimePeriod}.");
             }
 
             // Extract input values as floats
-            var inputValues = fxData.Select(d => Convert.ToSingle(d.Close ?? 0m)).ToArray().AsSpan();
+            var inputValues = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var varValues = new float[fxData.Count];
+
+            int NoReturned = fxData.Count() - lookBack;
+            var varValues = new float[NoReturned];
             var range = new Range(0, inputValues.Length - 1);
 
             // Call Var function
@@ -4159,36 +3720,29 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, normalize and return Variance values
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    signals.Add(varValues[i]);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return varValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating Variance indicator. RetCode: {retCode}");
             }
         }
-        public float[] WclPrice(List<IndicatorDataPoint> fxData)
+        public float[] WclPrice(List<ITradingDataPoint<T>> fxData)
         {
-            // Validate input data length
+            int lookBack = Functions.VarLookback();
 
-            if (fxData == null || fxData.Count < Functions.VarLookback())
+            if (fxData == null || fxData.Count < lookBack)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
                 throw new NotEnoughDataException($"Not enough data to calculate {methodName} indicator for the chosen time period.");
             }
 
             // Extract high, low, and close values as floats
-            var highs = fxData.Select(d => Convert.ToSingle(d.High ?? 0m)).ToArray().AsSpan();
-            var lows = fxData.Select(d => Convert.ToSingle(d.Low ?? 0m)).ToArray().AsSpan();
-            var closes = fxData.Select(d => Convert.ToSingle(d.Close ?? 0m)).ToArray().AsSpan();
+            var highs = fxData.Select(d => Convert.ToSingle(d.High.GetValueOrDefault())).ToArray().AsSpan();
+            var lows = fxData.Select(d => Convert.ToSingle(d.Low.GetValueOrDefault())).ToArray().AsSpan();
+            var closes = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
+
             var wclPriceValues = new float[fxData.Count];
             var range = new Range(0, highs.Length - 1);
 
@@ -4204,35 +3758,29 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, normalize and return Weighted Close Price values
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    signals.Add(wclPriceValues[i]);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return wclPriceValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating Weighted Close Price indicator. RetCode: {retCode}");
             }
         }
-        public float[] WillR(List<IndicatorDataPoint> fxData, int optInTimePeriod = 14)
+        public float[] WillR(List<ITradingDataPoint<T>> fxData, int optInTimePeriod = 14)
         {
-            // Validate input data length
-            if (fxData == null || fxData.Count < Functions.WillRLookback(optInTimePeriod))
+            int lookBack = Functions.WillRLookback(optInTimePeriod);
+            if (fxData == null || fxData.Count < lookBack)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
                 throw new NotEnoughDataException($"Not enough data to calculate {methodName} indicator for the chosen time period {optInTimePeriod}.");
             }
             // Extract high, low, and close values as floats
-            var highs = fxData.Select(d => Convert.ToSingle(d.High ?? 0m)).ToArray().AsSpan();
-            var lows = fxData.Select(d => Convert.ToSingle(d.Low ?? 0m)).ToArray().AsSpan();
-            var closes = fxData.Select(d => Convert.ToSingle(d.Close ?? 0m)).ToArray().AsSpan();
+            var highs = fxData.Select(d => Convert.ToSingle(d.High.GetValueOrDefault())).ToArray().AsSpan();
+            var lows = fxData.Select(d => Convert.ToSingle(d.Low.GetValueOrDefault())).ToArray().AsSpan();
+            var closes = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var willRValues = new float[fxData.Count];
+
+            int NoReturned = fxData.Count() - lookBack;
+            var willRValues = new float[NoReturned];
             var range = new Range(0, highs.Length - 1);
 
             // Call WillR function
@@ -4248,34 +3796,28 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, normalize and return Williams %R values
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    signals.Add(willRValues[i]);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return willRValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating Williams %R indicator. RetCode: {retCode}");
             }
         }
-        public float[] Wma(List<IndicatorDataPoint> fxData, int optInTimePeriod = 30)
+        public float[] Wma(List<ITradingDataPoint<T>> fxData, int optInTimePeriod = 30)
         {
-            // Validate input data length
-
-            if (fxData == null || fxData.Count < Functions.WmaLookback(optInTimePeriod))
+            
+            int lookBack = Functions.WmaLookback(optInTimePeriod);
+            if (fxData == null || fxData.Count < lookBack)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
                 throw new NotEnoughDataException($"Not enough data to calculate {methodName} indicator for the chosen time period {optInTimePeriod}.");
             }
             // Extract the real values (e.g., close prices) as floats
-            var realValues = fxData.Select(d => Convert.ToSingle(d.Close ?? 0m)).ToArray().AsSpan();
+            var realValues = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var wmaValues = new float[fxData.Count];
+
+            int NoReturned = fxData.Count() - lookBack;
+            var wmaValues = new float[NoReturned];
             var range = new Range(0, realValues.Length - 1);
 
             // Call Wma function
@@ -4289,36 +3831,30 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, normalize and return WMA values
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    signals.Add(wmaValues[i]);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return wmaValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating WMA indicator. RetCode: {retCode}");
             }
         }
-        public float[] Obv(List<IndicatorDataPoint> fxData)
+        public float[] Obv(List<ITradingDataPoint<T>> fxData)
         {
-            // Validate input data length
 
-            if (fxData == null || fxData.Count < Functions.ObvLookback())
+            int lookBack = Functions.ObvLookback();
+            if (fxData == null || fxData.Count < lookBack)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
                 throw new NotEnoughDataException($"Not enough data to calculate {methodName} indicator for the chosen time period.");
             }
 
             // Extract prices and volumes as floats
-            var prices = fxData.Select(d => Convert.ToSingle(d.Close ?? 0m)).ToArray().AsSpan();
-            var volumes = fxData.Select(d => Convert.ToSingle(d.Volume ?? 0m)).ToArray().AsSpan();
+            var prices = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
+            var volumes = fxData.Select(d => Convert.ToSingle(d.Volume.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var obvValues = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookBack;
+
+            var obvValues = new float[NoReturned];
             var range = new Range(0, prices.Length-1);
 
             // Call OBV function
@@ -4332,35 +3868,28 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, normalize and return OBV values
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    signals.Add(obvValues[i]);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return obvValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating OBV indicator. RetCode: {retCode}");
             }
         }
-        public float[] AdOsc(List<IndicatorDataPoint> fxData, int fastPeriod = 3, int slowPeriod = 10)
+        public float[] AdOsc(List<ITradingDataPoint<T>> fxData, int fastPeriod = 3, int slowPeriod = 10)
         {
-            // Validate input data length
 
-            if (fxData == null || fxData.Count < Functions.AdOscLookback(fastPeriod, slowPeriod))
+            int lookBack = Functions.AdOscLookback(fastPeriod, slowPeriod);
+            if (fxData == null || fxData.Count < lookBack)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
                 throw new NotEnoughDataException($"Not enough data to calculate {methodName} indicator for the chosen time period. Fast Period:{fastPeriod} and Slow Period:{slowPeriod}");
             }
 
             // Extract high, low, close prices, and volume as floats
-            var highPrices = fxData.Select(d => Convert.ToSingle(d.High ?? 0m)).ToArray().AsSpan();
-            var lowPrices = fxData.Select(d => Convert.ToSingle(d.Low ?? 0m)).ToArray().AsSpan();
-            var closePrices = fxData.Select(d => Convert.ToSingle(d.Offer ?? d.Bid ?? 0m)).ToArray().AsSpan();
-            var volumes = fxData.Select(d => Convert.ToSingle(d.Volume ?? 0m)).ToArray().AsSpan(); // Assuming IndicatorDataPoint has a Volume property
+            var highPrices = fxData.Select(d => Convert.ToSingle(d.High.GetValueOrDefault())).ToArray().AsSpan();
+            var lowPrices = fxData.Select(d => Convert.ToSingle(d.Low.GetValueOrDefault())).ToArray().AsSpan();
+            var closePrices = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
+            var volumes = fxData.Select(d => Convert.ToSingle(d.Volume.GetValueOrDefault())).ToArray().AsSpan(); // Assuming ITradingDataPoint<T> has a Volume property
 
             // Validate lengths
             if (highPrices.Length != lowPrices.Length || lowPrices.Length != closePrices.Length || closePrices.Length != volumes.Length)
@@ -4368,8 +3897,9 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
                 throw new Exception("Input data lengths do not match.");
             }
 
-            // Prepare output array
-            var adOscValues = new float[fxData.Count];
+
+            int NoReturned = fxData.Count() - lookBack;
+            var adOscValues = new float[NoReturned];
             var range = new Range(0, highPrices.Length - 1);
 
             // Call AdOsc function
@@ -4387,40 +3917,31 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, calculate normalized signals
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    var adOscValue = adOscValues[i];
-
-                    signals.Add(adOscValue); // Round to nearest int and add to signals
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return adOscValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating AD Oscillator. RetCode: {retCode}");
             }
         }
-        public float[] Mfi(List<IndicatorDataPoint> fxData, int optInTimePeriod = 14)
+        public float[] Mfi(List<ITradingDataPoint<T>> fxData, int optInTimePeriod = 14)
         {
-            // Validate input data length
 
-            if (fxData == null || fxData.Count < Functions.MfiLookback(optInTimePeriod))
+            int lookBack = Functions.MfiLookback(optInTimePeriod);
+            if (fxData == null || fxData.Count < lookBack)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
                 throw new NotEnoughDataException($"Not enough data to calculate {methodName} indicator for the chosen time period {optInTimePeriod}.");
             }
 
             // Extract High, Low, Close, and Volume as floats
-            var highs = fxData.Select(d => Convert.ToSingle(d.High ?? 0m)).ToArray().AsSpan();
-            var lows = fxData.Select(d => Convert.ToSingle(d.Low ?? 0m)).ToArray().AsSpan();
-            var closes = fxData.Select(d => Convert.ToSingle(d.Close ?? 0m)).ToArray().AsSpan();
-            var volumes = fxData.Select(d => Convert.ToSingle(d.Volume ?? 0m)).ToArray().AsSpan();
+            var highs = fxData.Select(d => Convert.ToSingle(d.High.GetValueOrDefault())).ToArray().AsSpan();
+            var lows = fxData.Select(d => Convert.ToSingle(d.Low.GetValueOrDefault())).ToArray().AsSpan();
+            var closes = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
+            var volumes = fxData.Select(d => Convert.ToSingle(d.Volume.GetValueOrDefault())).ToArray().AsSpan();
 
-            // Prepare output array
-            var mfiValues = new float[fxData.Count];
+            int NoReturned = fxData.Count() - lookBack;
+            var mfiValues = new float[NoReturned];
             var range = new Range(0, highs.Length - 1);
 
             // Call MFI function
@@ -4437,35 +3958,28 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, normalize and return MFI values
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    signals.Add(mfiValues[i]);
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return mfiValues.ToArray(); 
             }
             else
             {
                 throw new Exception($"Error calculating MFI indicator. RetCode: {retCode}");
             }
         }
-        public float[] Ad(List<IndicatorDataPoint> fxData)
+        public float[] Ad(List<ITradingDataPoint<T>> fxData)
         {
-            // Validate input data length
 
-            if (fxData == null || fxData.Count < Functions.AdLookback())
+            int lookBack = Functions.AdLookback();
+            if (fxData == null || fxData.Count < lookBack)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
                 throw new NotEnoughDataException($"Not enough data to calculate {methodName} indicator for the chosen time period.");
             }
 
             // Extract high, low, close prices, and volume as floats
-            var highPrices = fxData.Select(d => Convert.ToSingle(d.High ?? 0m)).ToArray().AsSpan();
-            var lowPrices = fxData.Select(d => Convert.ToSingle(d.Low ?? 0m)).ToArray().AsSpan();
-            var closePrices = fxData.Select(d => Convert.ToSingle(d.Offer ?? d.Bid ?? 0m)).ToArray().AsSpan();
-            var volumes = fxData.Select(d => Convert.ToSingle(d.Volume ?? 0m)).ToArray().AsSpan(); // Assuming IndicatorDataPoint has a Volume property
+            var highPrices = fxData.Select(d => Convert.ToSingle(d.High.GetValueOrDefault())).ToArray().AsSpan();
+            var lowPrices = fxData.Select(d => Convert.ToSingle(d.Low.GetValueOrDefault())).ToArray().AsSpan();
+            var closePrices = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
+            var volumes = fxData.Select(d => Convert.ToSingle(d.Volume.GetValueOrDefault())).ToArray().AsSpan(); // Assuming ITradingDataPoint<T> has a Volume property
 
             // Validate lengths
             if (highPrices.Length != lowPrices.Length || lowPrices.Length != closePrices.Length || closePrices.Length != volumes.Length)
@@ -4473,8 +3987,9 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
                 throw new Exception("Input data lengths do not match.");
             }
 
-            // Prepare output array
-            var adValues = new float[fxData.Count];
+
+            int NoReturned = fxData.Count() - lookBack;
+            var adValues = new float[NoReturned];
             var range = new Range(0, highPrices.Length - 1);
 
             // Call Ad function
@@ -4490,16 +4005,7 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             // If successful, calculate normalized signals
             if (retCode == Core.RetCode.Success)
             {
-                var signals = new List<float>();
-
-                for (int i = outputRange.Start.Value; i < outputRange.End.Value; i++)
-                {
-                    var adValue = adValues[i];
-
-                    signals.Add(adValue); // Round to nearest int and add to signals
-                }
-
-                return signals.ToArray(); // Return the array of signals
+                return adValues.ToArray(); 
             }
             else
             {

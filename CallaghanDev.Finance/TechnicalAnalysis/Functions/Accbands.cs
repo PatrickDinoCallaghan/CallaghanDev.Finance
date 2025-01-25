@@ -25,9 +25,6 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
 
         public static int AccbandsLookback(int optInTimePeriod = 20) => optInTimePeriod < 2 ? -1 : SmaLookback(optInTimePeriod);
 
-        
-        
-        
 
         private static Core.RetCode Accbands<T>(
             T[] inHigh,

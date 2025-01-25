@@ -13,9 +13,6 @@ namespace CallaghanDev.Finance.TechnicalAnalysis.Helpers
         /// Computes the Simple Moving Average (SMA) over a set of data points.
         /// SMA = (sum of data points) / (number of data points)
         /// </summary>
-        /// <param name="data">The data set to compute the average over.</param>
-        /// <returns>The computed SMA as a value of type T.</returns>
-        /// <exception cref="ArgumentException">Thrown if <paramref name="data"/> is empty.</exception>
         public static T Simple<T>(ReadOnlySpan<T> data) where T : IFloatingPoint<T>
         {
             if (data.IsEmpty)
@@ -34,9 +31,6 @@ namespace CallaghanDev.Finance.TechnicalAnalysis.Helpers
         /// Computes a simple Weighted Moving Average (WMA), with weights increasing linearly.
         /// For example, the nth-from-last element is multiplied by n, etc.
         /// </summary>
-        /// <param name="data">The data set to compute the WMA over.</param>
-        /// <returns>The computed WMA as a value of type T.</returns>
-        /// <exception cref="ArgumentException">Thrown if <paramref name="data"/> is empty.</exception>
         public static T Weighted<T>(ReadOnlySpan<T> data) where T : IFloatingPoint<T>
         {
             if (data.IsEmpty)
@@ -57,48 +51,34 @@ namespace CallaghanDev.Finance.TechnicalAnalysis.Helpers
         }
 
         /// <summary>
-        /// Computes an Exponential Moving Average (EMA) using a user-supplied alpha.
-        /// NOTE: This version also applies a 'weight' based on the index, matching your original code.
-        /// 
-        /// Typical EMA formula: EMA[i] = alpha * data[i] + (1 - alpha) * EMA[i - 1]
-        /// In your sample, there's an additional multiplying factor 'weight'. 
-        /// Adjust as needed if you want the standard EMA formula instead.
+        /// Computes the Exponential Moving Average (EMA) as a full series.
+        /// The first element of the returned array corresponds to the oldest data point (least relevant),
+        /// and the last element corresponds to the most current data point (most relevant).
         /// </summary>
-        /// <param name="data">The data set to compute the EMA over.</param>
-        /// <param name="alpha">Smoothing factor (between 0 and 1).</param>
-        /// <returns>The computed EMA as a value of type T.</returns>
-        /// <exception cref="ArgumentException">Thrown if <paramref name="data"/> is empty.</exception>
-        public static T Exponential<T>(ReadOnlySpan<T> data, T alpha)
+        public static T[] Exponential<T>(ReadOnlySpan<T> data, T alpha)
             where T : IFloatingPoint<T>
         {
             if (data.IsEmpty)
                 throw new ArgumentException("Data must not be empty.", nameof(data));
 
-            // Start with the first data point
-            T ema = data[0];
+            T[] emaValues = new T[data.Length];
+            emaValues[0] = data[0]; // Start with the first data point
 
-            // For subsequent points, apply the alpha * data[i] * weight + (1 - alpha) * ema
+            // For subsequent points, compute EMA
             for (int i = 1; i < data.Length; i++)
             {
-                // weight = i / (data.Length - 1)
-                // Must convert i and (data.Length - 1) to T for division
-                var weight = T.CreateChecked(i) / T.CreateChecked(data.Length - 1);
-
-                ema = alpha * data[i] * weight + (T.One - alpha) * ema;
+                emaValues[i] = alpha * data[i] + (T.One - alpha) * emaValues[i - 1];
             }
 
-            return ema;
+            return emaValues;
         }
 
         /// <summary>
-        /// Overload for ExponentialMovingAverage with a default alpha = 0.3
+        /// Overload for ExponentialMovingAverage with a default alpha = 0.3.
         /// </summary>
-        /// <param name="data">The data set to compute the EMA over.</param>
-        /// <returns>The computed EMA with alpha=0.3 as a value of type T.</returns>
-        public static T Exponential<T>(ReadOnlySpan<T> data)
+        public static T[] Exponential<T>(ReadOnlySpan<T> data)
             where T : IFloatingPoint<T>
         {
-            // Provide a default alpha of 0.3
             T defaultAlpha = T.CreateChecked(0.3);
             return Exponential(data, defaultAlpha);
         }
