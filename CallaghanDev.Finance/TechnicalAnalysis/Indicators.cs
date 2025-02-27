@@ -129,7 +129,7 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
         }
         public float[] Add(List<ITradingDataPoint<T>> fxData)
         {
-            int lookback = Functions.AcosLookback();
+            int lookback = Functions.AddLookback();
 
             
             if (fxData == null || fxData.Count < lookback)
@@ -166,6 +166,56 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
             if (retCode == Core.RetCode.Success)
             {
                 return addedValues.ToArray(); 
+            }
+            else
+            {
+                throw new Exception($"Error calculating Add indicator. RetCode: {retCode}");
+            }
+        }
+        public float[] AdOsc(List<ITradingDataPoint<T>> fxData)
+        {
+            int lookback = Functions.AdOscLookback();
+
+
+            if (fxData == null || fxData.Count < lookback)
+            {
+                string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
+
+                throw new NotEnoughDataException($"Not enough data to calculate {methodName} indicator.");
+            }
+
+
+            var HighPrices = fxData.Select(d => Convert.ToSingle(d.High.GetValueOrDefault())).ToArray().AsSpan();
+            var LowPrices = fxData.Select(d => Convert.ToSingle(d.Low.GetValueOrDefault())).ToArray().AsSpan();
+            var ClosePrices = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
+            var Volumnes = fxData.Select(d => Convert.ToSingle(d.Volume.GetValueOrDefault())).ToArray().AsSpan();
+
+
+            // Validate lengths
+            if (HighPrices.Length != LowPrices.Length)
+            {
+                throw new Exception("Input data lengths do not match.");
+            }
+
+            int NoReturned = fxData.Count() - lookback;
+
+            var addedValues = new float[NoReturned];
+            var range = new Range(0, fxData.Count() - 1);
+
+            // Call Add function
+            var retCode = Functions.AdOsc<float>(
+                HighPrices,
+                LowPrices,
+                ClosePrices,
+                Volumnes,
+                range,
+                addedValues,
+                out var outputRange);
+
+            // If successful, calculate normalized signals
+            if (retCode == Core.RetCode.Success)
+            {
+                return addedValues.ToArray();
             }
             else
             {
@@ -2526,6 +2576,16 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
                 throw new Exception($"Error calculating NATR indicator. RetCode: {retCode}");
             }
         }
+
+
+
+
+
+
+
+
+
+
         public float[] PlusDI(List<ITradingDataPoint<T>> fxData, int optInTimePeriod = 14)
         {
             int lookback = Functions.PlusDILookback(optInTimePeriod);
@@ -3838,41 +3898,97 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
                 throw new Exception($"Error calculating WMA indicator. RetCode: {retCode}");
             }
         }
-        public float[] Obv(List<ITradingDataPoint<T>> fxData)
-        {
 
-            int lookBack = Functions.ObvLookback();
-            if (fxData == null || fxData.Count < lookBack)
+        public float[] Ad(List<ITradingDataPoint<T>> fxData)
+        {
+            int lookback = Functions.AdLookback();
+
+            if (fxData == null || fxData.Count < lookback)
             {
                 string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
-                throw new NotEnoughDataException($"Not enough data to calculate {methodName} indicator for the chosen time period.");
+
+                throw new NotEnoughDataException($"Not enough data to calculate {methodName} indicator.");
             }
 
-            // Extract prices and volumes as floats
-            var prices = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
-            var volumes = fxData.Select(d => Convert.ToSingle(d.Volume.GetValueOrDefault())).ToArray().AsSpan();
+            var HighPrices = fxData.Select(d => Convert.ToSingle(d.High.GetValueOrDefault())).ToArray().AsSpan();
+            var LowPrices = fxData.Select(d => Convert.ToSingle(d.Low.GetValueOrDefault())).ToArray().AsSpan();
+            var ClosePrices = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
+            var Volumnes = fxData.Select(d => Convert.ToSingle(d.Volume.GetValueOrDefault())).ToArray().AsSpan();
 
-            int NoReturned = fxData.Count() - lookBack;
+            // Validate lengths
+            if (HighPrices.Length != LowPrices.Length)
+            {
+                throw new Exception("Input data lengths do not match.");
+            }
 
-            var obvValues = new float[NoReturned];
-            var range = new Range(0, prices.Length-1);
+            int NoReturned = fxData.Count() - lookback;
 
-            // Call OBV function
-            var retCode = Functions.Obv<float>(
-                prices,
-                volumes,
+            var addedValues = new float[NoReturned];
+            var range = new Range(0, Volumnes.Length - 1);
+
+            // Call Add function
+            var retCode = Functions.Ad<float>(
+                HighPrices,
+                LowPrices,
+                ClosePrices,
+                Volumnes,
                 range,
-                obvValues,
+                addedValues,
                 out var outputRange);
 
-            // If successful, normalize and return OBV values
+            // If successful, calculate normalized signals
             if (retCode == Core.RetCode.Success)
             {
-                return obvValues.ToArray(); 
+                return addedValues.ToArray();
             }
             else
             {
-                throw new Exception($"Error calculating OBV indicator. RetCode: {retCode}");
+                throw new Exception($"Error calculating Add indicator. RetCode: {retCode}");
+            }
+        }
+        public float[] Obv(List<ITradingDataPoint<T>> fxData)
+        {
+            int lookback = Functions.ObvLookback();
+
+
+            if (fxData == null || fxData.Count < lookback)
+            {
+                string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
+
+                throw new NotEnoughDataException($"Not enough data to calculate {methodName} indicator.");
+            }
+
+            var ClosePrices = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
+            var Volumnes = fxData.Select(d => Convert.ToSingle(d.Volume.GetValueOrDefault())).ToArray().AsSpan();
+
+
+            // Validate lengths
+            if (ClosePrices.Length != Volumnes.Length)
+            {
+                throw new Exception("Input data lengths do not match.");
+            }
+
+            int NoReturned = fxData.Count() - lookback;
+
+            var addedValues = new float[NoReturned];
+            var range = new Range(0, fxData.Count() - 1);
+
+            // Call Add function
+            var retCode = Functions.Obv<float>(
+                ClosePrices,
+                Volumnes,
+                range,
+                addedValues,
+                out var outputRange);
+
+            // If successful, calculate normalized signals
+            if (retCode == Core.RetCode.Success)
+            {
+                return addedValues.ToArray();
+            }
+            else
+            {
+                throw new Exception($"Error calculating Add indicator. RetCode: {retCode}");
             }
         }
         public float[] AdOsc(List<ITradingDataPoint<T>> fxData, int fastPeriod = 3, int slowPeriod = 10)
@@ -3965,53 +4081,6 @@ namespace CallaghanDev.Finance.TechnicalAnalysis
                 throw new Exception($"Error calculating MFI indicator. RetCode: {retCode}");
             }
         }
-        public float[] Ad(List<ITradingDataPoint<T>> fxData)
-        {
-
-            int lookBack = Functions.AdLookback();
-            if (fxData == null || fxData.Count < lookBack)
-            {
-                string methodName = MethodBase.GetCurrentMethod()?.Name ?? "UnknownMethod";
-                throw new NotEnoughDataException($"Not enough data to calculate {methodName} indicator for the chosen time period.");
-            }
-
-            // Extract high, low, close prices, and volume as floats
-            var highPrices = fxData.Select(d => Convert.ToSingle(d.High.GetValueOrDefault())).ToArray().AsSpan();
-            var lowPrices = fxData.Select(d => Convert.ToSingle(d.Low.GetValueOrDefault())).ToArray().AsSpan();
-            var closePrices = fxData.Select(d => Convert.ToSingle(d.Close.GetValueOrDefault())).ToArray().AsSpan();
-            var volumes = fxData.Select(d => Convert.ToSingle(d.Volume.GetValueOrDefault())).ToArray().AsSpan(); // Assuming ITradingDataPoint<T> has a Volume property
-
-            // Validate lengths
-            if (highPrices.Length != lowPrices.Length || lowPrices.Length != closePrices.Length || closePrices.Length != volumes.Length)
-            {
-                throw new Exception("Input data lengths do not match.");
-            }
-
-
-            int NoReturned = fxData.Count() - lookBack;
-            var adValues = new float[NoReturned];
-            var range = new Range(0, highPrices.Length - 1);
-
-            // Call Ad function
-            var retCode = Functions.Ad<float>(
-                highPrices,
-                lowPrices,
-                closePrices,
-                volumes,
-                range,
-                adValues,
-                out var outputRange);
-
-            // If successful, calculate normalized signals
-            if (retCode == Core.RetCode.Success)
-            {
-                return adValues.ToArray(); 
-            }
-            else
-            {
-                throw new Exception($"Error calculating AD indicator. RetCode: {retCode}");
-            }
-        }
-
+      
     }
 }
