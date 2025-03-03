@@ -8,6 +8,18 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Enums\BaseMetal.cs" />
+    <Compile Remove="Enums\BondsRates.cs" />
+    <Compile Remove="Enums\EnergyType.cs" />
+    <Compile Remove="Enums\EquityIndex.cs" />
+    <Compile Remove="Enums\FxSymbols.cs" />
+    <Compile Remove="Enums\IGTradable.cs" />
+    <Compile Remove="Enums\PreciousMetal.cs" />
+    <Compile Remove="Enums\Region.cs" />
+    <Compile Remove="Enums\SoftCommodity.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="JetBrains.Annotations" Version="2024.3.0" />
   </ItemGroup>
 
