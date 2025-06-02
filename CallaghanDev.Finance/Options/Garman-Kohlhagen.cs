@@ -47,6 +47,14 @@
     }
     public static class FXOptionExtensions
     {
+        public static decimal? GetPrice(this IFXOption option)
+        {
+            if (option.GetBidMid() == null || option.GetOfferMid() == null)
+            {
+                return null;
+            }
+            return (option.GetBidMid().Value + option.GetOfferMid().Value) / 2;
+        }
         public static decimal? GetBidMid(this IFXOption option)
         {
             if (option.BidHigh.HasValue && option.BidLow.HasValue)
@@ -69,6 +77,14 @@
             return null;
         }
 
+        public static decimal? GetAssetPrice(this IFXOption option)
+        {
+            if (option.GetAssetBidMid() == null || option.GetAssetOfferMid() == null)
+            {
+                return null;
+            }
+            return (option.GetAssetBidMid().Value + option.GetAssetOfferMid().Value) / 2;
+        }
         public static decimal? GetAssetBidMid(this IFXOption option)
         {
             if (option.AssetBidHigh.HasValue && option.AssetBidLow.HasValue)
