@@ -8,9 +8,9 @@
 
         public DateTime Timepoint { get; set; }
 
-        public ulong? Call { get; set; }
+        public bool? Call { get; set; }
 
-        public ulong? Put { get; set; }
+        public bool? Put { get; set; }
 
         public decimal? AssetOfferHigh { get; set; }
 
